@@ -52,10 +52,9 @@ python-aws-monorepo-boilerplate/
 │       ├── __init__.py
 │       └── hello_stack.py      # API Gateway + Lambda + Layer stack
 │
-├── pyproject.toml              # Root uv workspace config + dev tools
+├── pyproject.toml              # Root uv workspace config, dev tools, and mypy config
 ├── .python-version             # 3.13
 ├── ruff.toml                   # Ruff lint + format config
-├── mypy.ini                    # mypy strict config
 └── .gitignore
 ```
 

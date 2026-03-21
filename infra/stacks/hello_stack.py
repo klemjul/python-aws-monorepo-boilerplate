@@ -53,31 +53,25 @@ class DepsBundler:
         os.makedirs(python_dir, exist_ok=True)
 
         uv_bin = shutil.which("uv")
-        if uv_bin:
-            cmd: list[str] = [
-                uv_bin,
-                "pip",
-                "install",
-                self._source_dir,
-                "-t",
-                python_dir,
-                "--no-cache-dir",
-                "--quiet",
-                "--python",
-                sys.executable,
-            ]
-        else:
-            cmd = [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                self._source_dir,
-                "-t",
-                python_dir,
-                "--no-cache-dir",
-                "--quiet",
-            ]
+        if not uv_bin:
+            # uv is required so that workspace dependencies declared via
+            # [tool.uv.sources] (e.g. shared = { workspace = true }) are
+            # correctly resolved.  Without uv, fall back to Docker bundling.
+            print("DepsBundler: 'uv' not found; skipping local bundling.")
+            return False
+
+        cmd: list[str] = [
+            uv_bin,
+            "pip",
+            "install",
+            self._source_dir,
+            "-t",
+            python_dir,
+            "--no-cache-dir",
+            "--quiet",
+            "--python",
+            sys.executable,
+        ]
 
         # Run from REPO_ROOT so uv can resolve workspace dependencies declared
         # via [tool.uv.sources] (e.g. shared = { workspace = true }).
@@ -111,15 +105,17 @@ class HelloStack(cdk.Stack):
                 bundling=cdk.BundlingOptions(
                     image=lambda_.Runtime.PYTHON_3_13.bundling_image,
                     local=DepsBundler(LAMBDA_DIR),
-                    # Docker fallback: the asset input is the lambda dir; shared
-                    # must be copied alongside it for pip to resolve workspace deps.
+                    # Docker fallback is intentionally disabled: the Docker
+                    # context (/asset-input) only contains the lambda directory,
+                    # so pip cannot resolve workspace dependencies (e.g. `shared`)
+                    # declared via [tool.uv.sources].  Install uv locally to use
+                    # the faster and correct local bundling path instead.
                     command=[
                         "bash",
                         "-c",
                         (
-                            "pip install /asset-input"
-                            " -t /asset-output/python"
-                            " --no-cache-dir --quiet"
+                            "echo 'Error: Docker bundling is disabled;"
+                            " install uv to use local bundling.' >&2; exit 1"
                         ),
                     ],
                 ),

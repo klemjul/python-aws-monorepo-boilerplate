@@ -1,12 +1,5 @@
 {
   // -----------------------------------------------------------------
-  // Python interpreter
-  // -----------------------------------------------------------------
-  // Let uv manage the venv; point VS Code at the workspace-level venv
-  // created by `uv sync --all-packages`.
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-
-  // -----------------------------------------------------------------
   // Formatting – delegate entirely to Ruff
   // -----------------------------------------------------------------
   "[python]": {
