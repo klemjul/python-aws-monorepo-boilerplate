@@ -7,8 +7,6 @@
     "ms-python.mypy-type-checker",
     // Linting & formatting
     "charliermarsh.ruff",
-    // AWS CDK / Lambda development
-    "amazonwebservices.aws-toolkit-vscode",
     // TOML files (pyproject.toml, etc.)
     "tamasfe.even-better-toml",
     // YAML files (GitHub Actions CI)

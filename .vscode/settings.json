@@ -43,8 +43,6 @@
   // Editor – general quality-of-life
   // -----------------------------------------------------------------
   "editor.rulers": [88],
-  "files.trimTrailingWhitespace": true,
-  "files.insertFinalNewline": true,
 
   // -----------------------------------------------------------------
   // File associations

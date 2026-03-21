@@ -23,39 +23,12 @@
 
 ```
 python-aws-monorepo-boilerplate/
-│
-├── .github/
-│   └── workflows/
-│       └── ci.yml              # Lint, type-check, test, CDK synth on push/PR
-│
-├── packages/
-│   └── shared/                 # Internal shared utility library
-│       ├── pyproject.toml
-│       ├── src/shared/
-│       │   ├── __init__.py
-│       │   └── response.py     # build_response() helper
-│       └── tests/
-│
-├── lambdas/
-│   └── hello/                  # Example Lambda behind API Gateway
-│       ├── pyproject.toml
-│       ├── src/hello/
-│       │   ├── __init__.py
-│       │   └── handler.py      # Lambda entry point
-│       └── tests/
-│
-├── infra/
-│   ├── pyproject.toml
-│   ├── cdk.json                # CDK app config
-│   ├── app.py                  # CDK app entrypoint
-│   └── stacks/
-│       ├── __init__.py
-│       └── hello_stack.py      # API Gateway + Lambda + Layer stack
-│
-├── pyproject.toml              # Root uv workspace config, dev tools, and mypy config
-├── .python-version             # 3.13
-├── ruff.toml                   # Ruff lint + format config
-└── .gitignore
+├── .github/workflows/ci.yml   # CI: lint, type-check, test, CDK synth
+├── packages/shared/            # Internal shared library (imported by lambdas)
+├── lambdas/hello/              # Example Lambda function (API Gateway → Lambda)
+├── infra/                      # AWS CDK app (stacks, bundling)
+├── pyproject.toml              # Root uv workspace, dev tools, and mypy config
+└── ruff.toml                   # Ruff lint + format config
 ```
 
 ---
@@ -67,40 +40,16 @@ python-aws-monorepo-boilerplate/
 | Tool | Installation |
 |------|-------------|
 | **uv** | See [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/) |
-| **Node.js** (≥18) | Required for the AWS CDK CLI. Use [nvm](https://github.com/nvm-sh/nvm) (Linux/macOS), [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows), or the [official installer](https://nodejs.org/) |
+| **Node.js** (≥20 LTS) | See [nodejs.org](https://nodejs.org/) |
+| **AWS CDK CLI** (≥2) | See [aws/aws-cdk](https://github.com/aws/aws-cdk) |
 | **AWS CLI** | Required for `cdk deploy`. See [AWS CLI installation](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (not needed for `cdk synth`) |
 
 ### Setup
 
-**Linux / macOS**
-
 ```bash
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Install Python 3.13 and workspace dependencies
 uv python install 3.13
 uv sync --all-packages
-
-# Install the CDK CLI (requires Node.js)
-npm install -g aws-cdk
 ```
-
-**Windows (PowerShell)**
-
-```powershell
-# Install uv
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# Install Python 3.13 and workspace dependencies
-uv python install 3.13
-uv sync --all-packages
-
-# Install the CDK CLI (requires Node.js)
-npm install -g aws-cdk
-```
-
-> **Note:** All `uv` and `uv run` commands work identically on Linux, macOS, and Windows.
 
 ---
 
@@ -151,63 +100,54 @@ uv run pytest lambdas/hello/tests/
 No AWS credentials are needed for synth:
 
 ```bash
-cd infra
-uv run cdk synth
+uv run --directory infra cdk synth
 ```
 
 ### Bootstrap AWS Environment (first-time only)
 
 ```bash
-cd infra
-uv run cdk bootstrap
+uv run --directory infra cdk bootstrap
 ```
 
 ### Deploy to AWS
 
 ```bash
-cd infra
-uv run cdk deploy
+uv run --directory infra cdk deploy
 ```
 
 ### Destroy Stack
 
 ```bash
-cd infra
-uv run cdk destroy
+uv run --directory infra cdk destroy
 ```
 
 ---
 
 ## Architecture
 
-The `hello` stack provisions:
-
-- **HelloDepsLayer** — A Lambda Layer containing all of the `hello` lambda's runtime dependencies (as declared in `lambdas/hello/pyproject.toml`). This keeps the Lambda deployment package small. Add any new runtime dependency to `lambdas/hello/pyproject.toml` and it will automatically be bundled into this layer.
-- **HelloFunction** — The Lambda function containing only the handler source code (`lambdas/hello/src/`). All imports are satisfied at runtime by the layer.
-- **API Gateway REST API** — Routes `GET /hello` to the Lambda function. An optional `name` query parameter customises the greeting.
-
-```
-Client → API Gateway (GET /hello?name=Alice) → Lambda (hello.handler.handler) → 200 {"message": "Hello, Alice!"}
+```mermaid
+flowchart LR
+    Client -->|"GET /hello?name=Alice"| APIGW["API Gateway"]
+    APIGW --> Fn["HelloFunction\n(Python 3.13)"]
+    Fn -.->|"runtime deps"| Layer["HelloDepsLayer"]
+    Fn -->|"200 {message: Hello, Alice!}"| Client
 ```
 
 ---
 
-## Adding a New Lambda
+## Adding a New Project
 
-1. Create a new package under `lambdas/`:
-   ```bash
-   # Linux / macOS
-   mkdir -p lambdas/myfunction/src/myfunction lambdas/myfunction/tests
+**New shared library** (`packages/<name>`):
 
-   # Windows (PowerShell)
-   New-Item -ItemType Directory lambdas/myfunction/src/myfunction
-   New-Item -ItemType Directory lambdas/myfunction/tests
-   ```
-2. Add a `pyproject.toml` (copy from `lambdas/hello/pyproject.toml` and adjust the name and dependencies).
-3. The root `pyproject.toml` workspace glob `lambdas/*` picks it up automatically — run `uv lock` to update the lockfile.
-4. Write your handler in `lambdas/myfunction/src/myfunction/handler.py`.
-5. Add a corresponding CDK stack in `infra/stacks/`.
-6. Register the new stack in `infra/app.py`.
+1. Create the package directory with a `src/` layout and a `pyproject.toml`.
+2. The root workspace glob `packages/*` picks it up — run `uv lock` to update the lockfile.
+3. Declare it as a workspace dependency in any lambda that needs it via `[tool.uv.sources]`.
+
+**New Lambda** (`lambdas/<name>`):
+
+1. Create the package directory with a `src/` layout and a `pyproject.toml`.
+2. The root workspace glob `lambdas/*` picks it up — run `uv lock` to update the lockfile.
+3. Add a CDK stack in `infra/stacks/` (copy `hello_stack.py` as a starting point) and register it in `infra/app.py`.
 
 ---
 
