@@ -74,7 +74,7 @@ uv run ruff format .
 ### Type Checking
 
 ```bash
-uv run mypy packages/ lambdas/
+uv run mypy packages/ lambdas/ infra/
 ```
 
 ### Running Tests

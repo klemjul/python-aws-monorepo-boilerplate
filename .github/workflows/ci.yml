@@ -87,4 +87,4 @@ jobs:
         run: uv sync --all-packages
 
       - name: CDK Synth
-        run: cd infra && uv run cdk synth
+        run: uv run --directory infra cdk synth
