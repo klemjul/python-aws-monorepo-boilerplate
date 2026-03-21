@@ -142,12 +142,15 @@ flowchart LR
 1. Create the package directory with a `src/` layout and a `pyproject.toml`.
 2. The root workspace glob `packages/*` picks it up — run `uv lock` to update the lockfile.
 3. Declare it as a workspace dependency in any lambda that needs it via `[tool.uv.sources]`.
+4. Append `packages/<name>/src` to `mypy_path` in the root `pyproject.toml` `[tool.mypy]` section.
 
 **New Lambda** (`lambdas/<name>`):
 
 1. Create the package directory with a `src/` layout and a `pyproject.toml`.
 2. The root workspace glob `lambdas/*` picks it up — run `uv lock` to update the lockfile.
 3. Add a CDK stack in `infra/stacks/` (copy `hello_stack.py` as a starting point) and register it in `infra/app.py`.
+4. Append `lambdas/<name>/src` to `mypy_path` in the root `pyproject.toml` `[tool.mypy]` section.
+5. Append `lambdas/<name>/tests` to `testpaths` in the root `pyproject.toml` `[tool.pytest.ini_options]` section and to `python.testing.pytestArgs` in `.vscode/settings.json`.
 
 ---
 

@@ -45,7 +45,7 @@ jobs:
         run: uv sync --all-packages
 
       - name: mypy
-        run: uv run mypy packages/ lambdas/
+        run: uv run mypy packages/ lambdas/ infra/
 
   test:
     name: Tests
