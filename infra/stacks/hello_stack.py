@@ -12,40 +12,51 @@ from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
-LAMBDA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "lambdas", "hello")
-SHARED_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "packages", "shared")
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+LAMBDA_DIR = os.path.join(REPO_ROOT, "lambdas", "hello")
+SHARED_DIR = os.path.join(REPO_ROOT, "packages", "shared")
 
 
 @jsii.implements(cdk.ILocalBundling)
-class PipLocalBundler:
-    """Local bundler that installs a Python package with pip.
+class DepsBundler:
+    """Local bundler that installs a Python package's dependencies with uv/pip.
+
+    Packages are installed into ``output_dir/python`` so that the resulting
+    directory can be used directly as a Lambda Layer source.
 
     Used as a fallback when Docker is not available (e.g. in CI synth).
     """
 
-    def __init__(self, source_dir: str) -> None:
-        self._source_dir = source_dir
-
-    def try_bundle(self, output_dir: str, **_kwargs: Any) -> bool:
-        """Bundle the package into output_dir/python using pip or uv pip.
+    def __init__(self, packages: list[str]) -> None:
+        """Initialise the bundler with a list of package paths/names to install.
 
         Args:
-            output_dir: The directory to install the package into.
-            **_kwargs: CDK bundling options (ignored for local bundling).
+            packages: Paths to local packages or PyPI package specs to install.
+        """
+        self._packages = packages
+
+    def try_bundle(self, output_dir: str, _options: cdk.BundlingOptions) -> bool:
+        """Install all packages into ``output_dir/python``.
+
+        The jsii runtime calls this with two positional arguments.
+
+        Args:
+            output_dir: Destination directory for the bundled layer contents.
+            _options: CDK bundling options passed by the jsii runtime (unused).
 
         Returns:
-            True if bundling succeeded, False otherwise.
+            True if all packages were installed successfully, False otherwise.
         """
         python_dir = os.path.join(output_dir, "python")
         os.makedirs(python_dir, exist_ok=True)
 
         uv_bin = shutil.which("uv")
         if uv_bin:
-            cmd = [
+            cmd: list[str] = [
                 uv_bin,
                 "pip",
                 "install",
-                ".",
+                *self._packages,
                 "-t",
                 python_dir,
                 "--no-cache-dir",
@@ -59,14 +70,14 @@ class PipLocalBundler:
                 "-m",
                 "pip",
                 "install",
-                ".",
+                *self._packages,
                 "-t",
                 python_dir,
                 "--no-cache-dir",
                 "--quiet",
             ]
 
-        result = subprocess.run(cmd, cwd=self._source_dir, check=False)  # noqa: S603
+        result = subprocess.run(cmd, check=False)  # noqa: S603
         return result.returncode == 0
 
 
@@ -74,23 +85,25 @@ class HelloStack(cdk.Stack):
     """Stack that deploys the Hello Lambda behind an API Gateway REST API.
 
     Architecture:
-    - A Lambda Layer containing third-party and shared dependencies.
-    - A Lambda function with only the handler code.
+    - A Lambda Layer containing all of hello's runtime dependencies.
+    - A Lambda function with only the handler code (no bundled deps).
     - An API Gateway REST API routing GET /hello to the Lambda.
     """
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs: Any) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # Layer: bundle shared package dependencies
-        shared_layer = lambda_.LayerVersion(
+        # HelloDepsLayer: all runtime deps from lambdas/hello/pyproject.toml
+        # (currently: packages/shared). The lambda code zip contains only the
+        # handler; this layer provides everything it imports at runtime.
+        hello_deps_layer = lambda_.LayerVersion(
             self,
-            "SharedLayer",
+            "HelloDepsLayer",
             code=lambda_.Code.from_asset(
                 SHARED_DIR,
                 bundling=cdk.BundlingOptions(
                     image=lambda_.Runtime.PYTHON_3_13.bundling_image,
-                    local=PipLocalBundler(SHARED_DIR),
+                    local=DepsBundler([SHARED_DIR]),
                     command=[
                         "bash",
                         "-c",
@@ -99,10 +112,10 @@ class HelloStack(cdk.Stack):
                 ),
             ),
             compatible_runtimes=[lambda_.Runtime.PYTHON_3_13],
-            description="Shared utilities layer for Hello Lambda",
+            description="Hello Lambda runtime dependencies",
         )
 
-        # Lambda function: only the handler code (no deps — deps are in the layer)
+        # Lambda function: only the handler source — all imports resolved by the layer
         hello_fn = lambda_.Function(
             self,
             "HelloFunction",
@@ -111,7 +124,7 @@ class HelloStack(cdk.Stack):
             code=lambda_.Code.from_asset(
                 os.path.join(LAMBDA_DIR, "src"),
             ),
-            layers=[shared_layer],
+            layers=[hello_deps_layer],
             timeout=cdk.Duration.seconds(30),
             memory_size=256,
             environment={

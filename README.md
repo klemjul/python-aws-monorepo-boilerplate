@@ -52,9 +52,6 @@ python-aws-monorepo-boilerplate/
 │       ├── __init__.py
 │       └── hello_stack.py      # API Gateway + Lambda + Layer stack
 │
-├── scripts/
-│   └── bootstrap.sh            # One-command dev setup
-│
 ├── pyproject.toml              # Root uv workspace config + dev tools
 ├── .python-version             # 3.13
 ├── ruff.toml                   # Ruff lint + format config
@@ -68,33 +65,43 @@ python-aws-monorepo-boilerplate/
 
 ### Prerequisites
 
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) — Python package & workspace manager
-- [Node.js](https://nodejs.org/) (≥18) — Required for the AWS CDK CLI
-- [AWS CLI](https://aws.amazon.com/cli/) — Required for CDK deploy (not needed for `cdk synth`)
+| Tool | Installation |
+|------|-------------|
+| **uv** | See [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/) |
+| **Node.js** (≥18) | Required for the AWS CDK CLI. Use [nvm](https://github.com/nvm-sh/nvm) (Linux/macOS), [nvm-windows](https://github.com/coreybutler/nvm-windows) (Windows), or the [official installer](https://nodejs.org/) |
+| **AWS CLI** | Required for `cdk deploy`. See [AWS CLI installation](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (not needed for `cdk synth`) |
 
-### One-Command Setup
+### Setup
 
-```bash
-bash scripts/bootstrap.sh
-```
-
-This will:
-1. Install Python 3.13 (via uv)
-2. Lock and install all workspace dependencies
-3. Install the AWS CDK CLI via npm
-
-### Manual Setup
+**Linux / macOS**
 
 ```bash
-# Install Python 3.13
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install Python 3.13 and workspace dependencies
 uv python install 3.13
-
-# Lock dependencies
-uv lock
-
-# Install all workspace packages
 uv sync --all-packages
+
+# Install the CDK CLI (requires Node.js)
+npm install -g aws-cdk
 ```
+
+**Windows (PowerShell)**
+
+```powershell
+# Install uv
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Install Python 3.13 and workspace dependencies
+uv python install 3.13
+uv sync --all-packages
+
+# Install the CDK CLI (requires Node.js)
+npm install -g aws-cdk
+```
+
+> **Note:** All `uv` and `uv run` commands work identically on Linux, macOS, and Windows.
 
 ---
 
@@ -140,14 +147,6 @@ uv run pytest lambdas/hello/tests/
 
 ## CDK Infrastructure
 
-### Prerequisites
-
-Install the CDK CLI:
-
-```bash
-npm install -g aws-cdk
-```
-
 ### Synthesise CloudFormation Template
 
 No AWS credentials are needed for synth:
@@ -184,8 +183,8 @@ uv run cdk destroy
 
 The `hello` stack provisions:
 
-- **AWS Lambda Layer** — Contains the `shared` utility package and its dependencies, keeping the Lambda deployment package small.
-- **AWS Lambda Function** — Contains only the handler code (`lambdas/hello/src/`). The layer is attached at runtime.
+- **HelloDepsLayer** — A Lambda Layer containing all of the `hello` lambda's runtime dependencies (as declared in `lambdas/hello/pyproject.toml`). This keeps the Lambda deployment package small. Add any new runtime dependency to `lambdas/hello/pyproject.toml` and it will automatically be bundled into this layer.
+- **HelloFunction** — The Lambda function containing only the handler source code (`lambdas/hello/src/`). All imports are satisfied at runtime by the layer.
 - **API Gateway REST API** — Routes `GET /hello` to the Lambda function. An optional `name` query parameter customises the greeting.
 
 ```
@@ -198,10 +197,15 @@ Client → API Gateway (GET /hello?name=Alice) → Lambda (hello.handler.handler
 
 1. Create a new package under `lambdas/`:
    ```bash
+   # Linux / macOS
    mkdir -p lambdas/myfunction/src/myfunction lambdas/myfunction/tests
+
+   # Windows (PowerShell)
+   New-Item -ItemType Directory lambdas/myfunction/src/myfunction
+   New-Item -ItemType Directory lambdas/myfunction/tests
    ```
-2. Add a `pyproject.toml` (copy from `lambdas/hello/pyproject.toml` and adjust the name).
-3. Add the workspace member in the root `pyproject.toml` (the `lambdas/*` glob covers it automatically).
+2. Add a `pyproject.toml` (copy from `lambdas/hello/pyproject.toml` and adjust the name and dependencies).
+3. The root `pyproject.toml` workspace glob `lambdas/*` picks it up automatically — run `uv lock` to update the lockfile.
 4. Write your handler in `lambdas/myfunction/src/myfunction/handler.py`.
 5. Add a corresponding CDK stack in `infra/stacks/`.
 6. Register the new stack in `infra/app.py`.
