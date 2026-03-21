@@ -110,6 +110,10 @@ class DepsBundler:
             requirements += "\n"
 
         # Step 2: Install the exported requirements into the layer directory.
+        # If there are no non-editable requirements, skip the install step.
+        if not requirements.strip():
+            return True
+
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".txt", delete=False
         ) as req_file:
