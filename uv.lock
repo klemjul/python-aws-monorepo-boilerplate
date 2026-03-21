@@ -80,6 +80,19 @@ wheels = [
 ]
 
 [[package]]
+name = "aws-lambda-powertools"
+version = "3.26.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jmespath" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9a/41/0d232b87f069b8974048f247b3108869831e8949b27593de8058ec536370/aws_lambda_powertools-3.26.0.tar.gz", hash = "sha256:b1fc9f52ea2a179eb97e8b74ce1658b3dc67591566ec03402213943012406abf", size = 773737, upload-time = "2026-03-20T17:06:31.138Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/d5/a341fadb3026fc84c2267b9bfdefb7b509a6f72b4c598a226d9e4faede03/aws_lambda_powertools-3.26.0-py3-none-any.whl", hash = "sha256:a32d4bfa29aa806cca2eba2c607cf2d10f092506518b7a0bb7d894459998f3a1", size = 922995, upload-time = "2026-03-20T17:06:29.345Z" },
+]
+
+[[package]]
 name = "boto3-stubs"
 version = "1.42.73"
 source = { registry = "https://pypi.org/simple" }
@@ -222,6 +235,7 @@ name = "hello"
 version = "0.1.0"
 source = { editable = "lambdas/hello" }
 dependencies = [
+    { name = "aws-lambda-powertools" },
     { name = "shared" },
 ]
 
@@ -231,7 +245,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "shared", editable = "packages/shared" }]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
 
 [package.metadata.requires-dev]
 dev = [{ name = "boto3-stubs", extras = ["lambda", "apigateway"], specifier = ">=1.35.0" }]
@@ -267,6 +284,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
+]
+
+[[package]]
+name = "jmespath"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/59/322338183ecda247fb5d1763a6cbe46eff7222eaeebafd9fa65d4bf5cb11/jmespath-1.1.0.tar.gz", hash = "sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d", size = 27377, upload-time = "2026-01-22T16:35:26.279Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64", size = 20419, upload-time = "2026-01-22T16:35:24.919Z" },
 ]
 
 [[package]]
