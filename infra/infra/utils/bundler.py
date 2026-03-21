@@ -1,6 +1,7 @@
 """Local CDK bundler utilities."""
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -98,20 +99,24 @@ class DepsBundler:
                 f"{export_result.stderr}"
             )
 
-        # Filter out editable installs (e.g. `-e ./packages/shared`) — they
-        # cannot be installed into a target directory and would break in a
-        # deployed Lambda layer (no source tree at those paths).
+        # Keep only lines that look like actual package requirements (i.e. lines
+        # that start with a package-name character: letter, digit or underscore).
+        # This strips comment headers (``# ...``), annotation lines
+        # (``    # via ...``), editable installs (``-e ./packages/shared``),
+        # local path references (``./packages/shared``), and empty lines in a
+        # single pass — giving a clean requirements file any uv version can parse.
+        _pkg_line_re = re.compile(r"^[A-Za-z0-9_]")
         requirements = "\n".join(
             line
             for line in export_result.stdout.splitlines()
-            if not line.lstrip().startswith(("-e ", "--editable"))
+            if _pkg_line_re.match(line)
         )
         if requirements:
             requirements += "\n"
 
         # Step 2: Install the exported requirements into the layer directory.
-        # If there are no non-editable requirements, skip the install step.
-        if not requirements.strip():
+        # If there are no requirements after filtering, skip the install step.
+        if not requirements:
             return True
 
         with tempfile.NamedTemporaryFile(
