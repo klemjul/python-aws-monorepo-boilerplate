@@ -53,6 +53,13 @@ class DepsBundler:
         python_dir = os.path.join(output_dir, "python")
         os.makedirs(python_dir, exist_ok=True)
 
+        if sys.platform != "linux":
+            raise RuntimeError(
+                f"DepsBundler: Lambda layers must be built on Linux "
+                f"(current platform: {sys.platform!r}). "
+                "Run 'cdk synth/deploy' from a Linux environment."
+            )
+
         uv_bin = shutil.which("uv")
         if not uv_bin:
             raise RuntimeError(
@@ -91,11 +98,22 @@ class DepsBundler:
                 f"{export_result.stderr}"
             )
 
+        # Filter out editable installs (e.g. `-e ./packages/shared`) — they
+        # cannot be installed into a target directory and would break in a
+        # deployed Lambda layer (no source tree at those paths).
+        requirements = "\n".join(
+            line
+            for line in export_result.stdout.splitlines()
+            if not line.lstrip().startswith(("-e ", "--editable"))
+        )
+        if requirements:
+            requirements += "\n"
+
         # Step 2: Install the exported requirements into the layer directory.
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".txt", delete=False
         ) as req_file:
-            req_file.write(export_result.stdout)
+            req_file.write(requirements)
             req_path = req_file.name
 
         try:
@@ -113,6 +131,8 @@ class DepsBundler:
                     sys.executable,
                 ],
                 cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
                 check=False,
             )
         finally:
@@ -120,7 +140,8 @@ class DepsBundler:
 
         if install_result.returncode != 0:
             raise RuntimeError(
-                f"uv pip install failed (exit {install_result.returncode})"
+                f"uv pip install failed (exit {install_result.returncode}):\n"
+                f"{install_result.stderr}"
             )
 
         return True

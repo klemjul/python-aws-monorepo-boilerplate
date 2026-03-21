@@ -1,5 +1,6 @@
 """CDK assertion tests for HelloStack."""
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import aws_cdk as cdk
@@ -22,9 +23,12 @@ def _make_template(stack_id: str = "TestStack") -> Template:
     export_mock = MagicMock()
     export_mock.returncode = 0
     export_mock.stdout = "aws-lambda-powertools==3.26.0\n"
+    export_mock.stderr = ""
 
     install_mock = MagicMock()
     install_mock.returncode = 0
+    install_mock.stdout = ""
+    install_mock.stderr = ""
 
     results = iter([export_mock, install_mock])
 
@@ -32,6 +36,7 @@ def _make_template(stack_id: str = "TestStack") -> Template:
         return next(results)
 
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run),
         patch("infra.utils.bundler.os.unlink"),
@@ -227,14 +232,18 @@ def test_multiple_stacks_are_independent() -> None:
     export_mock = MagicMock()
     export_mock.returncode = 0
     export_mock.stdout = "aws-lambda-powertools==3.26.0\n"
+    export_mock.stderr = ""
     install_mock = MagicMock()
     install_mock.returncode = 0
+    install_mock.stdout = ""
+    install_mock.stderr = ""
     results = iter([export_mock, install_mock, export_mock, install_mock])
 
     def _fake_run(cmd: list[str], **kwargs: object) -> MagicMock:
         return next(results)
 
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run),
         patch("infra.utils.bundler.os.unlink"),
@@ -255,14 +264,18 @@ def test_hello_stack_invokes_uv_during_synth() -> None:
     export_mock = MagicMock()
     export_mock.returncode = 0
     export_mock.stdout = "aws-lambda-powertools==3.26.0\n"
+    export_mock.stderr = ""
     install_mock = MagicMock()
     install_mock.returncode = 0
+    install_mock.stdout = ""
+    install_mock.stderr = ""
     results = iter([export_mock, install_mock])
 
     def _fake_run(cmd: list[str], **kwargs: object) -> MagicMock:
         return next(results)
 
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run) as mock_run,
         patch("infra.utils.bundler.os.unlink"),

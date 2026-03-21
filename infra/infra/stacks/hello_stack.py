@@ -8,23 +8,23 @@ import aws_cdk as cdk
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
+
 from infra.utils.bundler import REPO_ROOT, DepsBundler
 
 LAMBDA_DIR = os.path.join(REPO_ROOT, "lambdas", "hello")
 
 
 def _deps_hash(lambda_dir: str) -> str:
-    """Compute a hash from dependency manifest files only.
+    """Compute a hash from the lambda's ``pyproject.toml`` only.
 
-    The layer is rebuilt only when ``pyproject.toml`` or ``uv.lock`` changes,
-    not when the handler source code changes.
+    The layer is rebuilt only when ``pyproject.toml`` changes, not when the
+    handler source code changes.
     """
     hasher = hashlib.sha256()
-    for filename in ("pyproject.toml", "uv.lock"):
-        filepath = os.path.join(lambda_dir, filename)
-        if os.path.exists(filepath):
-            with open(filepath, "rb") as f:
-                hasher.update(f.read())
+    filepath = os.path.join(lambda_dir, "pyproject.toml")
+    if os.path.exists(filepath):
+        with open(filepath, "rb") as f:
+            hasher.update(f.read())
     return hasher.hexdigest()[:32]
 
 
@@ -44,8 +44,8 @@ class HelloStack(cdk.Stack):
         # HelloDepsLayer: install only the runtime deps declared in
         # lambdas/hello/pyproject.toml into the layer (not the hello package
         # itself — that is deployed separately via Code.from_asset).
-        # The asset hash is derived from pyproject.toml and uv.lock so the
-        # layer is only rebuilt when dependencies change, not on every handler
+        # The asset hash is derived from pyproject.toml so the layer is only
+        # rebuilt when the dependency manifest changes, not on every handler
         # code edit.
         hello_deps_layer = lambda_.LayerVersion(
             self,

@@ -1,6 +1,7 @@
 """Unit tests for infra/infra/utils/bundler.py (DepsBundler)."""
 
 import os
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
@@ -25,6 +26,8 @@ def _mock_subprocess_run(export_rc: int = 0, install_rc: int = 0) -> MagicMock:
 
     install_mock = MagicMock()
     install_mock.returncode = install_rc
+    install_mock.stdout = ""
+    install_mock.stderr = "install error details"
 
     results = iter([export_mock, install_mock])
 
@@ -35,6 +38,19 @@ def _mock_subprocess_run(export_rc: int = 0, install_rc: int = 0) -> MagicMock:
 
 
 # ---------------------------------------------------------------------------
+# try_bundle - platform check
+# ---------------------------------------------------------------------------
+
+
+def test_try_bundle_raises_on_non_linux_platform(tmp_path: Path) -> None:
+    """try_bundle must raise RuntimeError on non-Linux platforms."""
+    bundler = DepsBundler("/fake/source")
+    with patch.object(sys, "platform", "darwin"):
+        with pytest.raises(RuntimeError, match="Linux"):
+            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+
+
+# ---------------------------------------------------------------------------
 # try_bundle - uv not found
 # ---------------------------------------------------------------------------
 
@@ -42,7 +58,10 @@ def _mock_subprocess_run(export_rc: int = 0, install_rc: int = 0) -> MagicMock:
 def test_try_bundle_raises_when_uv_missing(tmp_path: Path) -> None:
     """try_bundle must raise RuntimeError immediately when uv is not on PATH."""
     bundler = DepsBundler("/fake/source")
-    with patch("infra.utils.bundler.shutil.which", return_value=None):
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch("infra.utils.bundler.shutil.which", return_value=None),
+    ):
         with pytest.raises(RuntimeError, match="'uv' not found"):
             bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
 
@@ -50,7 +69,10 @@ def test_try_bundle_raises_when_uv_missing(tmp_path: Path) -> None:
 def test_try_bundle_creates_python_dir_even_when_uv_missing(tmp_path: Path) -> None:
     """The python/ subdirectory is created before the uv check."""
     bundler = DepsBundler("/fake/source")
-    with patch("infra.utils.bundler.shutil.which", return_value=None):
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch("infra.utils.bundler.shutil.which", return_value=None),
+    ):
         with pytest.raises(RuntimeError):
             bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
     assert os.path.isdir(os.path.join(str(tmp_path), "python"))
@@ -66,6 +88,7 @@ def test_try_bundle_returns_true_on_success(tmp_path: Path) -> None:
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run(export_rc=0, install_rc=0)
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -80,6 +103,7 @@ def test_try_bundle_raises_on_export_failure(tmp_path: Path) -> None:
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run(export_rc=1, install_rc=0)
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -94,6 +118,7 @@ def test_try_bundle_raises_on_install_failure(tmp_path: Path) -> None:
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run(export_rc=0, install_rc=1)
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -101,6 +126,57 @@ def test_try_bundle_raises_on_install_failure(tmp_path: Path) -> None:
     ):
         with pytest.raises(RuntimeError, match="uv pip install failed"):
             bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+
+
+def test_try_bundle_install_error_includes_stderr(tmp_path: Path) -> None:
+    """RuntimeError on install failure must include uv's stderr output."""
+    bundler = DepsBundler("/fake/source")
+    mock_run = _mock_subprocess_run(export_rc=0, install_rc=1)
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
+        patch("infra.utils.bundler.os.unlink"),
+    ):
+        with pytest.raises(RuntimeError, match="install error details"):
+            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+
+
+# ---------------------------------------------------------------------------
+# try_bundle - editable requirement filtering
+# ---------------------------------------------------------------------------
+
+
+def test_try_bundle_filters_editable_requirements(tmp_path: Path) -> None:
+    """Editable requirements (-e ...) must be stripped before installing."""
+    bundler = DepsBundler("/fake/source")
+    export_mock = MagicMock()
+    export_mock.returncode = 0
+    export_mock.stdout = "-e ./packages/shared\n"  # only editable entry
+    export_mock.stderr = ""
+
+    install_mock = MagicMock()
+    install_mock.returncode = 0
+    install_mock.stdout = ""
+    install_mock.stderr = ""
+
+    results = iter([export_mock, install_mock])
+
+    def _run(cmd: list[str], **kwargs: object) -> MagicMock:
+        return next(results)
+
+    mock_run = MagicMock(side_effect=_run)
+
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
+        patch("infra.utils.bundler.os.unlink"),
+    ):
+        result = bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+    assert result is True
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +189,7 @@ def test_try_bundle_export_uses_package_name(tmp_path: Path) -> None:
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run()
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -129,6 +206,7 @@ def test_try_bundle_export_uses_no_emit_project(tmp_path: Path) -> None:
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run()
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -144,6 +222,7 @@ def test_try_bundle_install_uses_requirements_file(tmp_path: Path) -> None:
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run()
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -159,6 +238,7 @@ def test_try_bundle_installs_into_python_subdir(tmp_path: Path) -> None:
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run()
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -177,6 +257,7 @@ def test_try_bundle_runs_from_repo_root(tmp_path: Path) -> None:
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run()
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -196,6 +277,7 @@ def test_try_bundle_propagates_oserror(tmp_path: Path) -> None:
     """If subprocess.run raises OSError the exception bubbles up."""
     bundler = DepsBundler("/fake/source")
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", side_effect=OSError("exec failed")),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -218,6 +300,7 @@ def test_different_bundlers_use_their_own_source_dirs(tmp_path: Path) -> None:
     bundler_b = DepsBundler("/source/b")
 
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
@@ -228,6 +311,7 @@ def test_different_bundlers_use_their_own_source_dirs(tmp_path: Path) -> None:
     # Reset mocks for the second bundler invocation
     mock_run2 = _mock_subprocess_run()
     with (
+        patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run2),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
