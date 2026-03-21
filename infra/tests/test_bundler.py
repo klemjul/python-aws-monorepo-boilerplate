@@ -235,6 +235,22 @@ def test_try_bundle_export_uses_no_emit_project(tmp_path: Path) -> None:
     assert "--no-emit-project" in first_call_cmd
 
 
+def test_try_bundle_export_uses_color_never(tmp_path: Path) -> None:
+    """uv export must pass --color=never to prevent ANSI codes in the requirements file."""
+    bundler = DepsBundler("/fake/source")
+    mock_run = _mock_subprocess_run()
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
+        patch("infra.utils.bundler.os.unlink"),
+    ):
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+    first_call_cmd = mock_run.call_args_list[0][0][0]
+    assert "--color=never" in first_call_cmd
+
+
 def test_try_bundle_install_uses_requirements_file(tmp_path: Path) -> None:
     """uv pip install must be called with -r <requirements_file>."""
     bundler = DepsBundler("/fake/source")

@@ -87,6 +87,7 @@ class DepsBundler:
                 "--no-hashes",
                 "--frozen",
                 "--no-dev",
+                "--color=never",
             ],
             cwd=REPO_ROOT,
             capture_output=True,
