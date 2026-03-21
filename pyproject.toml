@@ -19,3 +19,19 @@ testpaths = [
     "packages/shared/tests",
     "lambdas/hello/tests",
 ]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+no_implicit_reexport = true
+show_error_codes = true
+namespace_packages = true
+explicit_package_bases = true
+# Each package uses a src/ layout, so mypy_path must list every src/ root.
+# Add a new entry here whenever a new package or lambda is introduced.
+mypy_path = [
+    "packages/shared/src",
+    "lambdas/hello/src",
+]

@@ -19,24 +19,26 @@ SHARED_DIR = os.path.join(REPO_ROOT, "packages", "shared")
 
 @jsii.implements(cdk.ILocalBundling)
 class DepsBundler:
-    """Local bundler that installs a Python package's dependencies with uv/pip.
+    """Local bundler that installs a Python package's runtime deps with uv/pip.
 
-    Packages are installed into ``output_dir/python`` so that the resulting
-    directory can be used directly as a Lambda Layer source.
+    Installs the package located at ``source_dir`` (including all transitive
+    runtime dependencies declared in its ``pyproject.toml``) into
+    ``output_dir/python`` so the directory can be used as a Lambda Layer source.
 
-    Used as a fallback when Docker is not available (e.g. in CI synth).
+    Used as the primary bundler when Docker is not available (e.g. in CI synth).
     """
 
-    def __init__(self, packages: list[str]) -> None:
-        """Initialise the bundler with a list of package paths/names to install.
+    def __init__(self, source_dir: str) -> None:
+        """Initialise the bundler.
 
         Args:
-            packages: Paths to local packages or PyPI package specs to install.
+            source_dir: Absolute path to the package directory whose runtime
+                deps should be bundled (e.g. ``LAMBDA_DIR``).
         """
-        self._packages = packages
+        self._source_dir = source_dir
 
     def try_bundle(self, output_dir: str, _options: cdk.BundlingOptions) -> bool:
-        """Install all packages into ``output_dir/python``.
+        """Install runtime deps of ``source_dir`` into ``output_dir/python``.
 
         The jsii runtime calls this with two positional arguments.
 
@@ -45,7 +47,7 @@ class DepsBundler:
             _options: CDK bundling options passed by the jsii runtime (unused).
 
         Returns:
-            True if all packages were installed successfully, False otherwise.
+            True if bundling succeeded, False otherwise.
         """
         python_dir = os.path.join(output_dir, "python")
         os.makedirs(python_dir, exist_ok=True)
@@ -56,7 +58,7 @@ class DepsBundler:
                 uv_bin,
                 "pip",
                 "install",
-                *self._packages,
+                self._source_dir,
                 "-t",
                 python_dir,
                 "--no-cache-dir",
@@ -70,14 +72,16 @@ class DepsBundler:
                 "-m",
                 "pip",
                 "install",
-                *self._packages,
+                self._source_dir,
                 "-t",
                 python_dir,
                 "--no-cache-dir",
                 "--quiet",
             ]
 
-        result = subprocess.run(cmd, check=False)  # noqa: S603
+        # Run from REPO_ROOT so uv can resolve workspace dependencies declared
+        # via [tool.uv.sources] (e.g. shared = { workspace = true }).
+        result = subprocess.run(cmd, cwd=REPO_ROOT, check=False)  # noqa: S603
         return result.returncode == 0
 
 
@@ -85,29 +89,38 @@ class HelloStack(cdk.Stack):
     """Stack that deploys the Hello Lambda behind an API Gateway REST API.
 
     Architecture:
-    - A Lambda Layer containing all of hello's runtime dependencies.
-    - A Lambda function with only the handler code (no bundled deps).
-    - An API Gateway REST API routing GET /hello to the Lambda.
+    - HelloDepsLayer: Lambda Layer with all runtime deps from
+      lambdas/hello/pyproject.toml (shared + any third-party packages).
+    - HelloFunction: Lambda function containing only the handler source code.
+    - API Gateway REST API routing GET /hello to the Lambda.
     """
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs: Any) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # HelloDepsLayer: all runtime deps from lambdas/hello/pyproject.toml
-        # (currently: packages/shared). The lambda code zip contains only the
-        # handler; this layer provides everything it imports at runtime.
+        # HelloDepsLayer: install all runtime deps declared in
+        # lambdas/hello/pyproject.toml into the layer.  The asset source is
+        # LAMBDA_DIR so the layer hash tracks changes to pyproject.toml.
+        # The local bundler installs from LAMBDA_DIR with uv, which resolves
+        # workspace sources (e.g. 'shared') automatically.
         hello_deps_layer = lambda_.LayerVersion(
             self,
             "HelloDepsLayer",
             code=lambda_.Code.from_asset(
-                SHARED_DIR,
+                LAMBDA_DIR,
                 bundling=cdk.BundlingOptions(
                     image=lambda_.Runtime.PYTHON_3_13.bundling_image,
-                    local=DepsBundler([SHARED_DIR]),
+                    local=DepsBundler(LAMBDA_DIR),
+                    # Docker fallback: the asset input is the lambda dir; shared
+                    # must be copied alongside it for pip to resolve workspace deps.
                     command=[
                         "bash",
                         "-c",
-                        "pip install . -t /asset-output/python --no-cache-dir --quiet",
+                        (
+                            "pip install /asset-input"
+                            " -t /asset-output/python"
+                            " --no-cache-dir --quiet"
+                        ),
                     ],
                 ),
             ),
