@@ -1,5 +1,6 @@
 """AWS CDK stack for the Hello API Gateway + Lambda + Layer deployment."""
 
+import hashlib
 import os
 from typing import Any
 
@@ -7,9 +8,24 @@ import aws_cdk as cdk
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
-from utils.bundler import REPO_ROOT, DepsBundler
+from infra.utils.bundler import REPO_ROOT, DepsBundler
 
 LAMBDA_DIR = os.path.join(REPO_ROOT, "lambdas", "hello")
+
+
+def _deps_hash(lambda_dir: str) -> str:
+    """Compute a hash from dependency manifest files only.
+
+    The layer is rebuilt only when ``pyproject.toml`` or ``uv.lock`` changes,
+    not when the handler source code changes.
+    """
+    hasher = hashlib.sha256()
+    for filename in ("pyproject.toml", "uv.lock"):
+        filepath = os.path.join(lambda_dir, filename)
+        if os.path.exists(filepath):
+            with open(filepath, "rb") as f:
+                hasher.update(f.read())
+    return hasher.hexdigest()[:32]
 
 
 class HelloStack(cdk.Stack):
@@ -25,24 +41,26 @@ class HelloStack(cdk.Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs: Any) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # HelloDepsLayer: install all runtime deps declared in
-        # lambdas/hello/pyproject.toml into the layer.  The asset source is
-        # LAMBDA_DIR so the layer hash tracks changes to pyproject.toml.
-        # The local bundler installs from LAMBDA_DIR with uv, which resolves
-        # workspace sources (e.g. 'shared') automatically.
+        # HelloDepsLayer: install only the runtime deps declared in
+        # lambdas/hello/pyproject.toml into the layer (not the hello package
+        # itself — that is deployed separately via Code.from_asset).
+        # The asset hash is derived from pyproject.toml and uv.lock so the
+        # layer is only rebuilt when dependencies change, not on every handler
+        # code edit.
         hello_deps_layer = lambda_.LayerVersion(
             self,
             "HelloDepsLayer",
             code=lambda_.Code.from_asset(
                 LAMBDA_DIR,
+                asset_hash_type=cdk.AssetHashType.CUSTOM,
+                asset_hash=_deps_hash(LAMBDA_DIR),
                 bundling=cdk.BundlingOptions(
                     image=lambda_.Runtime.PYTHON_3_13.bundling_image,
                     local=DepsBundler(LAMBDA_DIR),  # type: ignore[arg-type]  # jsii protocol vs mypy stub mismatch
-                    # Docker fallback is intentionally disabled: the Docker
-                    # context (/asset-input) only contains the lambda directory,
-                    # so pip cannot resolve workspace dependencies (e.g. `shared`)
-                    # declared via [tool.uv.sources].  Install uv locally to use
-                    # the faster and correct local bundling path instead.
+                    # Docker fallback is intentionally disabled: DepsBundler
+                    # raises RuntimeError when uv is not available, so CDK
+                    # will never reach the Docker path.  Install uv locally
+                    # to use the correct local bundling path.
                     command=[
                         "bash",
                         "-c",

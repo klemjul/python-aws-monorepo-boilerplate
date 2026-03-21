@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import aws_cdk as cdk
 import pytest
 from aws_cdk.assertions import Capture, Template
-from stacks.hello_stack import HelloStack
+from infra.stacks.hello_stack import HelloStack
 
 
 def _make_template(stack_id: str = "TestStack") -> Template:
@@ -14,12 +14,27 @@ def _make_template(stack_id: str = "TestStack") -> Template:
     subprocess.run and shutil.which are patched so that DepsBundler.try_bundle
     runs its real code path and returns True without invoking uv or writing files
     (os.makedirs is NOT patched so the output dir is still created correctly).
+
+    subprocess.run is called twice:
+      1. ``uv export`` — must return stdout with requirements text and rc=0.
+      2. ``uv pip install -r`` — must return rc=0.
     """
-    mock_result = MagicMock()
-    mock_result.returncode = 0
+    export_mock = MagicMock()
+    export_mock.returncode = 0
+    export_mock.stdout = "aws-lambda-powertools==3.26.0\n"
+
+    install_mock = MagicMock()
+    install_mock.returncode = 0
+
+    results = iter([export_mock, install_mock])
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> MagicMock:
+        return next(results)
+
     with (
-        patch("utils.bundler.shutil.which", return_value="/usr/bin/uv"),
-        patch("utils.bundler.subprocess.run", return_value=mock_result),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run),
+        patch("infra.utils.bundler.os.unlink"),
     ):
         app = cdk.App()
         stack = HelloStack(app, stack_id)
@@ -202,24 +217,27 @@ def test_single_rest_api(template: Template) -> None:
 
 def test_stack_can_be_instantiated() -> None:
     """HelloStack must be instantiatable without exceptions."""
-    mock_result = MagicMock()
-    mock_result.returncode = 0
-    with (
-        patch("utils.bundler.shutil.which", return_value="/usr/bin/uv"),
-        patch("utils.bundler.subprocess.run", return_value=mock_result),
-    ):
-        app = cdk.App()
-        stack = HelloStack(app, "SmokeStack")
-        assert isinstance(stack, cdk.Stack)
+    # _make_template raises if HelloStack can't be instantiated
+    template = _make_template("SmokeStack")
+    assert template is not None
 
 
 def test_multiple_stacks_are_independent() -> None:
     """Two HelloStack instances in the same app must not share state."""
-    mock_result = MagicMock()
-    mock_result.returncode = 0
+    export_mock = MagicMock()
+    export_mock.returncode = 0
+    export_mock.stdout = "aws-lambda-powertools==3.26.0\n"
+    install_mock = MagicMock()
+    install_mock.returncode = 0
+    results = iter([export_mock, install_mock, export_mock, install_mock])
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> MagicMock:
+        return next(results)
+
     with (
-        patch("utils.bundler.shutil.which", return_value="/usr/bin/uv"),
-        patch("utils.bundler.subprocess.run", return_value=mock_result),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run),
+        patch("infra.utils.bundler.os.unlink"),
     ):
         app = cdk.App()
         stack_a = HelloStack(app, "StackA")
@@ -234,11 +252,20 @@ def test_multiple_stacks_are_independent() -> None:
 
 def test_hello_stack_invokes_uv_during_synth() -> None:
     """subprocess.run must be called at least once when synthesising the stack."""
-    mock_result = MagicMock()
-    mock_result.returncode = 0
+    export_mock = MagicMock()
+    export_mock.returncode = 0
+    export_mock.stdout = "aws-lambda-powertools==3.26.0\n"
+    install_mock = MagicMock()
+    install_mock.returncode = 0
+    results = iter([export_mock, install_mock])
+
+    def _fake_run(cmd: list[str], **kwargs: object) -> MagicMock:
+        return next(results)
+
     with (
-        patch("utils.bundler.shutil.which", return_value="/usr/bin/uv"),
-        patch("utils.bundler.subprocess.run", return_value=mock_result) as mock_run,
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run) as mock_run,
+        patch("infra.utils.bundler.os.unlink"),
     ):
         app = cdk.App()
         stack = HelloStack(app, "BundlerStack")
