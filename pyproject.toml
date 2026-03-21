@@ -18,6 +18,7 @@ dev = [
 testpaths = [
     "packages/shared/tests",
     "lambdas/hello/tests",
+    "infra/tests",
 ]
 
 [tool.mypy]
