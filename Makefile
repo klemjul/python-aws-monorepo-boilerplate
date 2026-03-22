@@ -37,7 +37,7 @@ test:
 	uv run pytest
 
 .PHONY: test-coverage
-test-cov:
+test-coverage:
 	uv run pytest --cov --cov-report=term-missing
 
 .PHONY: test-packages
@@ -50,7 +50,7 @@ test-lambdas:
 
 .PHONY: test-infra
 test-infra:
-	uv run pytest infra/src
+	uv run pytest infra/
 
 # ─── Code Quality (all-in-one) ────────────────────────────────────────────────
 

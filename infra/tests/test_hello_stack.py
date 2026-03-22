@@ -37,9 +37,9 @@ def _make_template(stack_id: str = "TestStack") -> Template:
 
     with (
         patch.object(sys, "platform", "linux"),
-        patch("src.infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
-        patch("src.infra.utils.bundler.subprocess.run", side_effect=_fake_run),
-        patch("src.infra.utils.bundler.os.unlink"),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run),
+        patch("infra.utils.bundler.os.unlink"),
     ):
         app = cdk.App()
         stack = HelloStack(app, stack_id)
@@ -244,9 +244,9 @@ def test_multiple_stacks_are_independent() -> None:
 
     with (
         patch.object(sys, "platform", "linux"),
-        patch("src.infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
-        patch("src.infra.utils.bundler.subprocess.run", side_effect=_fake_run),
-        patch("src.infra.utils.bundler.os.unlink"),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run),
+        patch("infra.utils.bundler.os.unlink"),
     ):
         app = cdk.App()
         stack_a = HelloStack(app, "StackA")
@@ -276,11 +276,9 @@ def test_hello_stack_invokes_uv_during_synth() -> None:
 
     with (
         patch.object(sys, "platform", "linux"),
-        patch("src.infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
-        patch(
-            "src.infra.utils.bundler.subprocess.run", side_effect=_fake_run
-        ) as mock_run,
-        patch("src.infra.utils.bundler.os.unlink"),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", side_effect=_fake_run) as mock_run,
+        patch("infra.utils.bundler.os.unlink"),
     ):
         app = cdk.App()
         stack = HelloStack(app, "BundlerStack")

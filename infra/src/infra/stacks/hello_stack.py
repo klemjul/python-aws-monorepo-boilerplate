@@ -18,14 +18,7 @@ LAMBDA_DIR = os.path.join(REPO_ROOT, "lambdas", "hello")
 
 
 class HelloStack(cdk.Stack):
-    """Stack that deploys the Hello Lambda behind an API Gateway REST API.
-
-    Architecture:
-    - HelloDepsLayer: Lambda Layer with all runtime deps from
-      lambdas/hello/pyproject.toml (shared + any third-party packages).
-    - HelloFunction: Lambda function containing only the handler source code.
-    - API Gateway REST API routing GET /hello to the Lambda.
-    """
+    """Stack that deploys the Hello Lambda behind an API Gateway REST API."""
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs: Any) -> None:
         super().__init__(scope, construct_id, **kwargs)
