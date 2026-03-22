@@ -22,7 +22,6 @@
   // -----------------------------------------------------------------
   // Type checking – Mypy
   // -----------------------------------------------------------------
-  "mypy-type-checker.enable": true,
   // Run mypy from the workspace root so it picks up pyproject.toml [tool.mypy]
   "mypy-type-checker.cwd": "${workspaceFolder}",
   "mypy-type-checker.reportingScope": "workspace",

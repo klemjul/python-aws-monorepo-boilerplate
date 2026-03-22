@@ -23,6 +23,19 @@ testpaths = [
 
 [tool.mypy]
 python_version = "3.13"
+exclude = [
+    "\\.venv/",
+    "venv/",
+    "build/",
+    "dist/",
+    "__pycache__/",
+    "\\.egg-info/",
+    "\\.eggs/",
+    "cdk\\.out/",
+    "node_modules/",
+    "\\.tox/",
+    "\\.nox/",
+]
 strict = true
 warn_return_any = true
 warn_unused_configs = true
@@ -31,11 +44,9 @@ show_error_codes = true
 namespace_packages = true
 explicit_package_bases = true
 # Each package uses a src/ layout, so mypy_path must list every src/ root.
-# The infra package uses infra/infra/ for its Python modules, so the outer
-# infra/ directory is listed (mypy finds infra.stacks, infra.utils, etc.).
 # Add a new entry here whenever a new package or lambda is introduced.
 mypy_path = [
     "packages/shared/src",
     "lambdas/hello/src",
-    "infra",
+    "infra/src",
 ]

@@ -1,5 +1,6 @@
 """Local CDK bundler utilities."""
 
+import hashlib
 import os
 import re
 import shutil
@@ -11,8 +12,24 @@ import tomllib
 import aws_cdk as cdk
 import jsii
 
-# infra/infra/utils/bundler.py is three levels below the repo root
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+# infra/src/infra/utils/bundler.py is four levels below the repo root
+REPO_ROOT: str = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+)
+
+
+def deps_hash(lambda_dir: str) -> str:
+    """Compute a hash from the lambda's ``pyproject.toml`` only.
+
+    The layer is rebuilt only when ``pyproject.toml`` changes, not when the
+    handler source code changes.
+    """
+    hasher = hashlib.sha256()
+    filepath = os.path.join(lambda_dir, "pyproject.toml")
+    if os.path.exists(filepath):
+        with open(filepath, "rb") as f:
+            hasher.update(f.read())
+    return hasher.hexdigest()[:32]
 
 
 @jsii.implements(cdk.ILocalBundling)
@@ -38,9 +55,7 @@ class DepsBundler:
 
     def try_bundle(self, output_dir: str, _options: cdk.BundlingOptions) -> bool:
         """Install runtime deps of ``source_dir`` into ``output_dir/python``.
-
         The jsii runtime calls this with two positional arguments.
-
         Args:
             output_dir: Destination directory for the bundled layer contents.
             _options: CDK bundling options passed by the jsii runtime (unused).
@@ -53,13 +68,6 @@ class DepsBundler:
         """
         python_dir = os.path.join(output_dir, "python")
         os.makedirs(python_dir, exist_ok=True)
-
-        if sys.platform != "linux":
-            raise RuntimeError(
-                f"DepsBundler: Lambda layers must be built on Linux "
-                f"(current platform: {sys.platform!r}). "
-                "Run 'cdk synth/deploy' from a Linux environment."
-            )
 
         uv_bin = shutil.which("uv")
         if not uv_bin:

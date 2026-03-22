@@ -1,31 +1,20 @@
 """AWS CDK stack for the Hello API Gateway + Lambda + Layer deployment."""
 
-import hashlib
 import os
-from typing import Any
+from typing import Any, cast
 
 import aws_cdk as cdk
 from aws_cdk import aws_apigateway as apigw
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
-from infra.utils.bundler import REPO_ROOT, DepsBundler
+from infra.utils.bundler import (
+    REPO_ROOT,
+    DepsBundler,
+    deps_hash,
+)
 
 LAMBDA_DIR = os.path.join(REPO_ROOT, "lambdas", "hello")
-
-
-def _deps_hash(lambda_dir: str) -> str:
-    """Compute a hash from the lambda's ``pyproject.toml`` only.
-
-    The layer is rebuilt only when ``pyproject.toml`` changes, not when the
-    handler source code changes.
-    """
-    hasher = hashlib.sha256()
-    filepath = os.path.join(lambda_dir, "pyproject.toml")
-    if os.path.exists(filepath):
-        with open(filepath, "rb") as f:
-            hasher.update(f.read())
-    return hasher.hexdigest()[:32]
 
 
 class HelloStack(cdk.Stack):
@@ -53,10 +42,10 @@ class HelloStack(cdk.Stack):
             code=lambda_.Code.from_asset(
                 LAMBDA_DIR,
                 asset_hash_type=cdk.AssetHashType.CUSTOM,
-                asset_hash=_deps_hash(LAMBDA_DIR),
+                asset_hash=deps_hash(LAMBDA_DIR),
                 bundling=cdk.BundlingOptions(
                     image=lambda_.Runtime.PYTHON_3_13.bundling_image,
-                    local=DepsBundler(LAMBDA_DIR),  # type: ignore[arg-type]  # jsii protocol vs mypy stub mismatch
+                    local=cast(cdk.ILocalBundling, DepsBundler(LAMBDA_DIR)),
                     # Docker fallback is intentionally disabled: DepsBundler
                     # raises RuntimeError when uv is not available, so CDK
                     # will never reach the Docker path.  Install uv locally
