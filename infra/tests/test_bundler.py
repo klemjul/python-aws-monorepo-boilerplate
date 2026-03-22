@@ -190,8 +190,7 @@ def test_try_bundle_installs_workspace_packages(tmp_path: Path) -> None:
     # The workspace package path derived from ``-e ./packages/shared`` must
     # appear in the install command as a non-editable absolute path.
     assert any(
-        arg.startswith(REPO_ROOT) and "packages/shared" in arg
-        for arg in install_cmd
+        arg.startswith(REPO_ROOT) and "packages/shared" in arg for arg in install_cmd
     )
 
 

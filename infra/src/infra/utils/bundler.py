@@ -163,7 +163,11 @@ class DepsBundler:
                 install_cmd += ["-r", req_path]
 
             install_cmd += [
-                "-t", python_dir, "--no-cache-dir", "--python", sys.executable
+                "-t",
+                python_dir,
+                "--no-cache-dir",
+                "--python",
+                sys.executable,
             ]
 
             install_result = subprocess.run(  # noqa: S603
