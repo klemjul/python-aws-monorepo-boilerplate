@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+import warnings
 
 import aws_cdk as cdk
 import jsii
@@ -66,6 +67,15 @@ class DepsBundler:
         Raises:
             RuntimeError: If uv is not found or any uv command fails.
         """
+        if sys.platform != "linux":
+            warnings.warn(
+                f"DepsBundler is running on {sys.platform!r}, not Linux. "
+                "Lambda layers require Linux-compatible wheels — the bundled "
+                "layer may be incompatible with AWS Lambda.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+
         python_dir = os.path.join(output_dir, "python")
         os.makedirs(python_dir, exist_ok=True)
 
@@ -108,53 +118,64 @@ class DepsBundler:
                 f"{export_result.stderr}"
             )
 
-        # Keep only lines that look like actual package requirements (i.e. lines
-        # that start with a package-name character: letter, digit or underscore).
-        # This strips comment headers (``# ...``), annotation lines
-        # (``    # via ...``), editable installs (``-e ./packages/shared``),
-        # local path references (``./packages/shared``), and empty lines in a
-        # single pass — giving a clean requirements file any uv version can parse.
+        # Separate requirements into external packages and local workspace
+        # packages.  uv exports workspace members as editable entries
+        # (e.g. ``-e ./packages/shared``); these cannot be installed into a
+        # target directory with --editable, so we convert them to absolute
+        # paths for a regular (non-editable) install.
         _pkg_line_re = re.compile(r"^[A-Za-z0-9_]")
-        requirements = "\n".join(
-            line
-            for line in export_result.stdout.splitlines()
-            if _pkg_line_re.match(line)
-        )
+        external_lines: list[str] = []
+        workspace_paths: list[str] = []
+        for line in export_result.stdout.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("-e "):
+                # ``-e ./packages/shared`` → absolute path for non-editable install
+                rel_path = stripped[3:].strip()
+                workspace_paths.append(os.path.join(REPO_ROOT, rel_path))
+            elif _pkg_line_re.match(line):
+                external_lines.append(line)
+
+        requirements = "\n".join(external_lines)
         if requirements:
             requirements += "\n"
 
-        # Step 2: Install the exported requirements into the layer directory.
-        # If there are no requirements after filtering, skip the install step.
-        if not requirements:
+        # Skip install step if there is nothing to install.
+        if not requirements and not workspace_paths:
             return True
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".txt", delete=False
-        ) as req_file:
-            req_file.write(requirements)
-            req_path = req_file.name
+        # Build the install command; workspace paths are added as direct
+        # (non-editable) installs alongside the requirements file.
+        install_cmd = [
+            uv_bin,
+            "pip",
+            "install",
+        ]
+        install_cmd.extend(workspace_paths)
 
+        req_path: str | None = None
         try:
+            if requirements:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".txt", delete=False
+                ) as req_file:
+                    req_file.write(requirements)
+                    req_path = req_file.name
+                install_cmd += ["-r", req_path]
+
+            install_cmd += [
+                "-t", python_dir, "--no-cache-dir", "--python", sys.executable
+            ]
+
             install_result = subprocess.run(  # noqa: S603
-                [
-                    uv_bin,
-                    "pip",
-                    "install",
-                    "-r",
-                    req_path,
-                    "-t",
-                    python_dir,
-                    "--no-cache-dir",
-                    "--python",
-                    sys.executable,
-                ],
+                install_cmd,
                 cwd=REPO_ROOT,
                 capture_output=True,
                 text=True,
                 check=False,
             )
         finally:
-            os.unlink(req_path)
+            if req_path is not None:
+                os.unlink(req_path)
 
         if install_result.returncode != 0:
             raise RuntimeError(
