@@ -1,6 +1,6 @@
 # python-aws-monorepo-boilerplate
 
-> Python 3.13 monorepo boilerplate for serverless AWS applications — powered by uv workspaces, Ruff linting, and AWS CDK.
+> Python monorepo boilerplate for serverless AWS applications, powered by uv, ruff, and AWS CDK.
 
 [![CI](https://github.com/klemjul/python-aws-monorepo-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/klemjul/python-aws-monorepo-boilerplate/actions/workflows/ci.yml)
 
