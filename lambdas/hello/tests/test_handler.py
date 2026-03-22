@@ -2,6 +2,7 @@
 
 import json
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -26,11 +27,7 @@ def _apigw_event(query_params: dict[str, str] | None = None) -> dict[str, Any]:
 
 @pytest.fixture
 def context() -> LambdaContext:
-    ctx = LambdaContext()
-    ctx._function_name = "hello"
-    ctx._memory_limit_in_mb = 128
-    ctx._aws_request_id = "test-request-id"
-    return ctx
+    return MagicMock(spec=LambdaContext)
 
 
 def test_handler_default_name(context: LambdaContext) -> None:
