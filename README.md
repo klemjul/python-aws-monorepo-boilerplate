@@ -1,21 +1,24 @@
 # python-aws-monorepo-boilerplate
 
-> Python monorepo boilerplate for serverless AWS applications, powered by uv, ruff, and AWS CDK.
+> [!NOTE]
+> POC Python monorepo boilerplate for serverless AWS applications, powered by uv, ruff, and AWS CDK.
 
 [![CI](https://github.com/klemjul/python-aws-monorepo-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/klemjul/python-aws-monorepo-boilerplate/actions/workflows/ci.yml)
-
----
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 ## Tech Stack
 
-| Tool | Role |
-|------|------|
-| Python 3.13 | Language |
-| [uv](https://docs.astral.sh/uv/) | Package manager & workspace manager |
-| [Ruff](https://docs.astral.sh/ruff/) | Linter & formatter |
-| [pytest](https://docs.pytest.org/en/stable/) | Test framework |
-| [mypy](https://mypy-lang.org/) | Static type checker |
-| [AWS CDK (Python)](https://docs.aws.amazon.com/cdk/v2/guide/home.html) | Infrastructure as Code |
+| Tool                                                                   | Role                                |
+| ---------------------------------------------------------------------- | ----------------------------------- |
+| Python 3.13                                                            | Language                            |
+| [uv](https://docs.astral.sh/uv/)                                       | Package manager & workspace manager |
+| [Ruff](https://docs.astral.sh/ruff/)                                   | Linter & formatter                  |
+| [pytest](https://docs.pytest.org/en/stable/)                           | Test framework                      |
+| [mypy](https://mypy-lang.org/)                                         | Static type checker                 |
+| [AWS CDK (Python)](https://docs.aws.amazon.com/cdk/v2/guide/home.html) | Infrastructure as Code              |
 
 ---
 
@@ -23,26 +26,29 @@
 
 ```
 python-aws-monorepo-boilerplate/
-├── .github/workflows/ci.yml   # CI: lint, type-check, test, CDK synth
-├── packages/shared/            # Internal shared library (imported by lambdas)
-├── lambdas/hello/              # Example Lambda function (API Gateway → Lambda)
-├── infra/                      # AWS CDK app (stacks, bundling)
-├── pyproject.toml              # Root uv workspace, dev tools, and mypy config
-└── ruff.toml                   # Ruff lint + format config
+├── .github/workflows/ci.yml        # CI: lint, type-check, test, CDK synth
+├── packages/
+│   └── shared/                     # libraries
+│   └── ...
+├── lambdas/
+│   └── hello/                      # lambdas
+│   └── ...
+├── infra/                          # AWS CDK app
+├── pyproject.toml                  # Root uv workspace, dev tools, mypy config
+├── ruff.toml                       # Ruff lint + format config
+└── Makefile                        # developer convenience targets
 ```
-
----
 
 ## Getting Started
 
 ### Prerequisites
 
-| Tool | Installation |
-|------|-------------|
-| **uv** | See [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/) |
-| **Node.js** (≥20 LTS) | See [nodejs.org](https://nodejs.org/) |
-| **AWS CDK CLI** (≥2) | See [aws/aws-cdk](https://github.com/aws/aws-cdk) |
-| **AWS CLI** | Required for `cdk deploy`. See [AWS CLI installation](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (not needed for `cdk synth`) |
+| Tool                  | Installation                                                                                                                                                      |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **uv**                | See [uv installation docs](https://docs.astral.sh/uv/getting-started/installation/)                                                                               |
+| **Node.js** (≥20 LTS) | See [nodejs.org](https://nodejs.org/)                                                                                                                             |
+| **AWS CDK CLI** (≥2)  | See [aws/aws-cdk](https://github.com/aws/aws-cdk)                                                                                                                 |
+| **AWS CLI**           | Required for `cdk deploy`. See [AWS CLI installation](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) (not needed for `cdk synth`) |
 
 ### Setup
 
@@ -50,8 +56,6 @@ python-aws-monorepo-boilerplate/
 uv python install 3.13
 uv sync --all-packages
 ```
-
----
 
 ## Development
 
@@ -91,68 +95,27 @@ uv run pytest packages/shared/tests/
 uv run pytest lambdas/hello/tests/
 ```
 
----
-
 ## Infrastructure
-
-### Synthesise CloudFormation Template
-
-No AWS credentials are needed for synth:
-
-```bash
-uv run --directory infra cdk synth
-```
-
-### Bootstrap AWS Environment (first-time only)
-
-```bash
-uv run --directory infra cdk bootstrap
-```
 
 ### Deploy to AWS
 
 ```bash
-uv run --directory infra cdk deploy
+uv run --directory infra cdk synth # generate cloud formation template
+uv run --directory infra cdk deploy # deploy cfn stacks to aws
+uv run --directory infra cdk destroy # destroy cfn stacks to aws
 ```
 
-### Destroy Stack
+### How To
 
-```bash
-uv run --directory infra cdk destroy
-```
+**New library** (`packages/<name>`):
 
----
-
-## Architecture
-
-```mermaid
-flowchart LR
-    Client -->|"GET /hello?name=Alice"| APIGW["API Gateway"]
-    APIGW --> Fn["HelloFunction\n(Python 3.13)"]
-    Fn -.->|"runtime deps"| Layer["HelloDepsLayer"]
-    Fn -->|"200 {message: Hello, Alice!}"| Client
-```
-
----
-
-## Adding a New Project
-
-**New shared library** (`packages/<name>`):
-
-1. Create the package directory with a `src/` and `tests` layout and a `pyproject.toml`.
-2. The root workspace glob `packages/*` picks it up — run `uv lock` to update the lockfile.
-3. Declare it as a workspace dependency in any lambda that needs it via `[tool.uv.sources]`.
-4. Append `packages/<name>/src` to `mypy_path` in the root [pyproject.toml](pyproject.toml) `[tool.mypy]` section.
+- Create `packages/<name>/` with a `src/`, `tests/`, and `pyproject.toml` (copy `packages/shared` as a template).
+- Add it as a dependency in any lambda's `pyproject.toml` via `[tool.uv.sources]`.
 
 **New Lambda** (`lambdas/<name>`):
 
-1. Create the package directory with a `src/` and `tests` layout and a `pyproject.toml`.
-2. The root workspace glob `lambdas/*` picks it up — run `uv lock` to update the lockfile.
-3. Add a CDK stack in `infra/src/infra/stacks/` (copy `hello_stack.py` as a starting point) and register it in `infra/app.py`.
-4. Append `lambdas/<name>/src` to `mypy_path` in the root `pyproject.toml` `[tool.mypy]` section.
-5. Append `lambdas/<name>/tests` to `testpaths` in the root `pyproject.toml` `[tool.pytest.ini_options]` section and to `python.testing.pytestArgs` in `.vscode/settings.json`.
-
----
+- Create `lambdas/<name>/` with a `src/`, `tests/`, and `pyproject.toml` (copy `lambdas/hello` as a template).
+- Register the lambda it in a stack under `infra/`.
 
 ## License
 

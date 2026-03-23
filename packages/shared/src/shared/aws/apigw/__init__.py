@@ -1,4 +1,4 @@
-"""Shared utility library for AWS Lambda functions."""
+"""AWS API Gateway utilities."""
 
 from shared.aws.apigw.response import build_response
 

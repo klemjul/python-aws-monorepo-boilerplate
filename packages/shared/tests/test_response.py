@@ -3,7 +3,7 @@
 import json
 
 import pytest
-from shared.response import build_response
+from shared.aws.apigw.response import build_response
 
 
 def test_build_response_default_headers() -> None:

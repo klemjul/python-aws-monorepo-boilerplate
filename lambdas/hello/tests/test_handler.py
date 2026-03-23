@@ -56,7 +56,7 @@ def test_handler_none_query_params(context: LambdaContext) -> None:
 
 def test_handler_response_has_content_type(context: LambdaContext) -> None:
     result = handler(_apigw_event(), context)
-    assert "application/json" in result["multiValueHeaders"]["Content-Type"]
+    assert result["headers"]["Content-Type"] == "application/json"
 
 
 @pytest.mark.parametrize("name", ["Bob", "Charlie", "Django"])

@@ -23,12 +23,27 @@ class HelloStack(cdk.Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs: Any) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # HelloDepsLayer: install only the runtime deps declared in
-        # lambdas/hello/pyproject.toml into the layer (not the hello package
-        # itself — that is deployed separately via Code.from_asset).
+        hello_fn = self._create_hello_function()
+
+        api = apigw.RestApi(
+            self,
+            "HelloApi",
+            rest_api_name="hello-api",
+            description="API Gateway for Hello Lambda",
+            deploy_options=apigw.StageOptions(stage_name="prod"),
+        )
+
+        hello_integration = apigw.LambdaIntegration(hello_fn)
+        hello_resource = api.root.add_resource("hello")
+        hello_resource.add_method("GET", hello_integration)
+
+        cdk.CfnOutput(self, "ApiUrl", value=api.url, description="API Gateway URL")
+
+    def _create_hello_function(self) -> lambda_.Function:
+        """Create the Hello Lambda function with its dependencies layer."""
+        # HelloDepsLayer: install only the runtime deps.
         # The asset hash is derived from pyproject.toml so the layer is only
-        # rebuilt when the dependency manifest changes, not on every handler
-        # code edit.
+        # rebuilt when the dependency changes.
         hello_deps_layer = lambda_.LayerVersion(
             self,
             "HelloDepsLayer",
@@ -41,8 +56,7 @@ class HelloStack(cdk.Stack):
                     local=cast(cdk.ILocalBundling, DepsBundler(LAMBDA_DIR)),
                     # Docker fallback is intentionally disabled: DepsBundler
                     # raises RuntimeError when uv is not available, so CDK
-                    # will never reach the Docker path.  Install uv locally
-                    # to use the correct local bundling path.
+                    # will never reach the Docker path.
                     command=[
                         "bash",
                         "-c",
@@ -57,8 +71,7 @@ class HelloStack(cdk.Stack):
             description="Hello Lambda runtime dependencies",
         )
 
-        # Lambda function: only the handler source — all imports resolved by the layer
-        hello_fn = lambda_.Function(
+        return lambda_.Function(
             self,
             "HelloFunction",
             runtime=lambda_.Runtime.PYTHON_3_13,
@@ -74,18 +87,3 @@ class HelloStack(cdk.Stack):
             },
             description="Hello World Lambda function",
         )
-
-        # API Gateway
-        api = apigw.RestApi(
-            self,
-            "HelloApi",
-            rest_api_name="hello-api",
-            description="API Gateway for Hello Lambda",
-            deploy_options=apigw.StageOptions(stage_name="prod"),
-        )
-
-        hello_integration = apigw.LambdaIntegration(hello_fn)
-        hello_resource = api.root.add_resource("hello")
-        hello_resource.add_method("GET", hello_integration)
-
-        cdk.CfnOutput(self, "ApiUrl", value=api.url, description="API Gateway URL")

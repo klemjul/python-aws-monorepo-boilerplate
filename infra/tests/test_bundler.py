@@ -85,6 +85,7 @@ def test_try_bundle_returns_true_on_success(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -115,6 +116,7 @@ def test_try_bundle_raises_on_install_failure(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -130,6 +132,7 @@ def test_try_bundle_install_error_includes_stderr(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -171,27 +174,28 @@ def test_try_bundle_skips_install_when_nothing_to_install(tmp_path: Path) -> Non
 
 def test_try_bundle_installs_workspace_packages(tmp_path: Path) -> None:
     """Workspace editable entries (-e ./packages/...) from uv export must be
-    converted to non-editable absolute-path installs in the uv pip install
-    command.
+    copied directly into python_dir via shutil.copytree (not via pip install).
     """
+    from infra.utils.bundler import REPO_ROOT
+
     bundler = DepsBundler("/fake/source")
     mock_run = _mock_subprocess_run(export_rc=0, install_rc=0)
+    mock_copytree = MagicMock()
     with (
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree", mock_copytree),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
         bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
-    from infra.utils.bundler import REPO_ROOT
 
-    install_cmd = mock_run.call_args_list[1][0][0]
-    # The workspace package path derived from ``-e ./packages/shared`` must
-    # appear in the install command as a non-editable absolute path.
-    assert any(
-        arg.startswith(REPO_ROOT) and "packages/shared" in arg for arg in install_cmd
-    )
+    # shutil.copytree must have been called with the workspace package's src/
+    # subdirectory as the source.
+    assert mock_copytree.call_count >= 1
+    copied_srcs = [str(call.args[0]) for call in mock_copytree.call_args_list]
+    assert any(REPO_ROOT in src and "packages/shared" in src for src in copied_srcs)
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +211,7 @@ def test_try_bundle_warns_on_non_linux(tmp_path: Path) -> None:
         patch.object(sys, "platform", "darwin"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -222,6 +227,7 @@ def test_try_bundle_no_warning_on_linux(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -243,6 +249,7 @@ def test_try_bundle_export_uses_package_name(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -260,6 +267,7 @@ def test_try_bundle_export_uses_no_emit_project(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -277,6 +285,7 @@ def test_try_bundle_export_uses_color_never(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -293,6 +302,7 @@ def test_try_bundle_install_uses_requirements_file(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -309,6 +319,7 @@ def test_try_bundle_installs_into_python_subdir(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -328,6 +339,7 @@ def test_try_bundle_runs_from_repo_root(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -371,6 +383,7 @@ def test_different_bundlers_use_their_own_source_dirs(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):
@@ -382,6 +395,7 @@ def test_different_bundlers_use_their_own_source_dirs(tmp_path: Path) -> None:
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
         patch("infra.utils.bundler.subprocess.run", mock_run2),
+        patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
     ):

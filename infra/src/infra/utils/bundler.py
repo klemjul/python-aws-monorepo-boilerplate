@@ -41,8 +41,7 @@ class DepsBundler:
     dependencies (not the project package itself) and installs them into
     ``output_dir/python`` so the directory can be used as a Lambda Layer source.
 
-    Raises ``RuntimeError`` if ``uv`` is not on PATH or if any uv command
-    fails — there is no Docker fallback.
+    Raises ``RuntimeError`` if ``uv`` is not on PATH or if any uv command fails.
     """
 
     def __init__(self, source_dir: str) -> None:
@@ -70,8 +69,8 @@ class DepsBundler:
         if sys.platform != "linux":
             warnings.warn(
                 f"DepsBundler is running on {sys.platform!r}, not Linux. "
-                "Lambda layers require Linux-compatible wheels — the bundled "
-                "layer may be incompatible with AWS Lambda.",
+                "Lambda layers require Linux-compatible wheels. "
+                "The bundled layer may be incompatible with AWS Lambda.",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -81,21 +80,15 @@ class DepsBundler:
 
         uv_bin = shutil.which("uv")
         if not uv_bin:
-            raise RuntimeError(
-                "DepsBundler: 'uv' not found on PATH. "
-                "Install uv (https://docs.astral.sh/uv/getting-started/installation/) "
-                "to bundle Lambda dependencies."
-            )
+            raise RuntimeError("DepsBundler: 'uv' not found on PATH. ")
 
         # Read the package name from pyproject.toml so we can pass it to
         # `uv export --package <name>`.
         with open(os.path.join(self._source_dir, "pyproject.toml"), "rb") as f:
             package_name: str = tomllib.load(f)["project"]["name"]
 
-        # Step 1: Export transitive dependencies, excluding the project package
-        # itself (--no-emit-project).  This ensures the lambda handler code is
-        # not duplicated in the layer (it is deployed separately via
-        # Code.from_asset(.../src)).
+        # Export dependencies, excluding the project package itself (--no-emit-project)
+        # This ensures the lambda handler code is not duplicated in the layer
         export_result = subprocess.run(  # noqa: S603
             [
                 uv_bin,
@@ -129,28 +122,38 @@ class DepsBundler:
         for line in export_result.stdout.splitlines():
             stripped = line.strip()
             if stripped.startswith("-e "):
-                # ``-e ./packages/shared`` → absolute path for non-editable install
+                # Handle editable/local dependencies (e.g. -e ./packages/shared)
                 rel_path = stripped[3:].strip()
                 workspace_paths.append(os.path.join(REPO_ROOT, rel_path))
             elif _pkg_line_re.match(line):
+                # Handle external dependencies
                 external_lines.append(line)
 
         requirements = "\n".join(external_lines)
         if requirements:
             requirements += "\n"
 
-        # Skip install step if there is nothing to install.
         if not requirements and not workspace_paths:
             return True
 
-        # Build the install command; workspace paths are added as direct
-        # (non-editable) installs alongside the requirements file.
+        # For workspace packages, copy their src/ into the target python_dir.
+        for ws_path in workspace_paths:
+            src_dir = os.path.join(ws_path, "src")
+            if os.path.isdir(src_dir):
+                for entry in os.listdir(src_dir):
+                    src = os.path.join(src_dir, entry)
+                    dst = os.path.join(python_dir, entry)
+                    if os.path.isdir(src):
+                        shutil.copytree(src, dst, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(src, dst)
+
+        # Build the install command for external packages only.
         install_cmd = [
             uv_bin,
             "pip",
             "install",
         ]
-        install_cmd.extend(workspace_paths)
 
         req_path: str | None = None
         try:
