@@ -17,6 +17,8 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = [
     "packages/shared/tests",
+    "packages/auth/tests",
+    "packages/db/tests",
     "lambdas/hello/tests",
     "infra/tests",
 ]
@@ -47,6 +49,8 @@ explicit_package_bases = true
 # Add a new entry here whenever a new package or lambda is introduced.
 mypy_path = [
     "packages/shared/src",
+    "packages/auth/src",
+    "packages/db/src",
     "lambdas/hello/src",
     "infra/src",
 ]
