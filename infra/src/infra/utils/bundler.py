@@ -161,13 +161,12 @@ class DepsBundler:
         for ws_path in workspace_paths:
             src_dir = os.path.join(ws_path, "src")
             if os.path.isdir(src_dir):
-                for entry in os.listdir(src_dir):
-                    src = os.path.join(src_dir, entry)
-                    dst = os.path.join(python_dir, entry)
-                    if os.path.isdir(src):
-                        shutil.copytree(src, dst, dirs_exist_ok=True, ignore=_ignore_fn)
-                    else:
-                        shutil.copy2(src, dst)
+                shutil.copytree(
+                    src_dir,
+                    python_dir,
+                    dirs_exist_ok=True,
+                    ignore=_ignore_fn,
+                )
 
         if not requirements:
             return True
