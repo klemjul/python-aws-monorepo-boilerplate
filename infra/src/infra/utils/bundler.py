@@ -111,11 +111,7 @@ class DepsBundler:
                 f"{export_result.stderr}"
             )
 
-        # Separate requirements into external packages and local workspace
-        # packages.  uv exports workspace members as editable entries
-        # (e.g. ``-e ./packages/shared``); these cannot be installed into a
-        # target directory with --editable, so we convert them to absolute
-        # paths for a regular (non-editable) install.
+        # Separate requirements into external packages and local workspace packages.
         _pkg_line_re = re.compile(r"^[A-Za-z0-9_]")
         external_lines: list[str] = []
         workspace_paths: list[str] = []
@@ -148,6 +144,9 @@ class DepsBundler:
                     else:
                         shutil.copy2(src, dst)
 
+        if not requirements:
+            return True
+
         # Build the install command for external packages only.
         install_cmd = [
             uv_bin,
@@ -173,6 +172,7 @@ class DepsBundler:
                 sys.executable,
             ]
 
+            # for external dependencies, use pip to install into the layer's python_dir
             install_result = subprocess.run(  # noqa: S603
                 install_cmd,
                 cwd=REPO_ROOT,
