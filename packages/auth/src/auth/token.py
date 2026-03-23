@@ -55,7 +55,7 @@ def decode_token(token: str) -> dict[str, Any]:
     """
     try:
         decoded = base64.b64decode(token + "==").decode("utf-8")
-        return dict(json.loads(decoded))  # type: ignore[arg-type]
+        return dict(json.loads(decoded))
     except Exception as exc:
         raise ValueError(f"Invalid token: {exc}") from exc
 

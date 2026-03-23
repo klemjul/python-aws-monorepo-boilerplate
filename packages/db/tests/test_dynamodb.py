@@ -5,7 +5,6 @@ import os
 import pytest
 from db.dynamodb import build_key, paginate_result, table_name
 
-
 # ---------------------------------------------------------------------------
 # table_name
 # ---------------------------------------------------------------------------
