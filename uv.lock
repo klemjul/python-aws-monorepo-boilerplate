@@ -8,8 +8,23 @@ members = [
     "db",
     "hello",
     "infra",
+    "orders-create",
+    "orders-get",
+    "orders-list",
+    "orders-update",
+    "products-create",
+    "products-delete",
+    "products-get",
+    "products-list",
+    "products-update",
     "python-aws-monorepo-boilerplate",
+    "reports-generate",
     "shared",
+    "users-create",
+    "users-delete",
+    "users-get",
+    "users-list",
+    "users-update",
 ]
 
 [[package]]
@@ -427,6 +442,74 @@ wheels = [
 ]
 
 [[package]]
+name = "orders-create"
+version = "0.1.0"
+source = { editable = "lambdas/orders_create" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "db" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "db", editable = "packages/db" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "orders-get"
+version = "0.1.0"
+source = { editable = "lambdas/orders_get" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "db" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "db", editable = "packages/db" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "orders-list"
+version = "0.1.0"
+source = { editable = "lambdas/orders_list" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "db" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "db", editable = "packages/db" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "orders-update"
+version = "0.1.0"
+source = { editable = "lambdas/orders_update" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "db" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "db", editable = "packages/db" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.0"
 source = { registry = "https://pypi.org/simple" }
@@ -451,6 +534,81 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
+name = "products-create"
+version = "0.1.0"
+source = { editable = "lambdas/products_create" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "products-delete"
+version = "0.1.0"
+source = { editable = "lambdas/products_delete" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "products-get"
+version = "0.1.0"
+source = { editable = "lambdas/products_get" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "products-list"
+version = "0.1.0"
+source = { editable = "lambdas/products_list" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "products-update"
+version = "0.1.0"
+source = { editable = "lambdas/products_update" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
 ]
 
 [[package]]
@@ -537,6 +695,23 @@ wheels = [
 ]
 
 [[package]]
+name = "reports-generate"
+version = "0.1.0"
+source = { editable = "lambdas/reports_generate" }
+dependencies = [
+    { name = "aws-lambda-powertools" },
+    { name = "db" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "db", editable = "packages/db" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
 name = "ruff"
 version = "0.15.7"
 source = { registry = "https://pypi.org/simple" }
@@ -609,4 +784,89 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/94/1a15dd82efb362ac84269196e94cf00f187f7ed21c242792a923cdb1c61f/typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466", size = 109391, upload-time = "2025-08-25T13:49:26.313Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/18/67/36e9267722cc04a6b9f15c7f3441c2363321a3ea07da7ae0c0707beb2a9c/typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548", size = 44614, upload-time = "2025-08-25T13:49:24.86Z" },
+]
+
+[[package]]
+name = "users-create"
+version = "0.1.0"
+source = { editable = "lambdas/users_create" }
+dependencies = [
+    { name = "auth" },
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "auth", editable = "packages/auth" },
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "users-delete"
+version = "0.1.0"
+source = { editable = "lambdas/users_delete" }
+dependencies = [
+    { name = "auth" },
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "auth", editable = "packages/auth" },
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "users-get"
+version = "0.1.0"
+source = { editable = "lambdas/users_get" }
+dependencies = [
+    { name = "auth" },
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "auth", editable = "packages/auth" },
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "users-list"
+version = "0.1.0"
+source = { editable = "lambdas/users_list" }
+dependencies = [
+    { name = "auth" },
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "auth", editable = "packages/auth" },
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
+]
+
+[[package]]
+name = "users-update"
+version = "0.1.0"
+source = { editable = "lambdas/users_update" }
+dependencies = [
+    { name = "auth" },
+    { name = "aws-lambda-powertools" },
+    { name = "shared" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "auth", editable = "packages/auth" },
+    { name = "aws-lambda-powertools", specifier = ">=3.0.0" },
+    { name = "shared", editable = "packages/shared" },
 ]
