@@ -67,9 +67,7 @@ class ProductsStack(cdk.Stack):
             "POST", apigw.LambdaIntegration(products_create_fn)
         )
         products_resource.add_method("GET", apigw.LambdaIntegration(products_list_fn))
-        product_id_resource.add_method(
-            "GET", apigw.LambdaIntegration(products_get_fn)
-        )
+        product_id_resource.add_method("GET", apigw.LambdaIntegration(products_get_fn))
         product_id_resource.add_method(
             "PUT", apigw.LambdaIntegration(products_update_fn)
         )
