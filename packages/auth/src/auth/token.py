@@ -1,4 +1,17 @@
-"""Authentication token utilities."""
+"""Authentication token utilities.
+
+.. warning::
+    These utilities are **structural helpers only** and are **not suitable for
+    production authentication**:
+
+    * ``verify_token`` / ``decode_token`` perform base64/JSON structural checks
+      with **no cryptographic signature verification** — tokens can be trivially
+      forged.  Use a proper JWT library (e.g. ``python-jose``, ``PyJWT``) with
+      signature verification for real auth decisions.
+    * ``hash_password`` uses plain SHA-256 with **no salt or key-stretching** —
+      it is vulnerable to rainbow-table attacks.  Use ``bcrypt``, ``argon2``,
+      or ``scrypt`` in production.
+"""
 
 import base64
 import hashlib
