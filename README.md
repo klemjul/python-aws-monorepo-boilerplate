@@ -115,7 +115,7 @@ uv run --directory infra cdk destroy # destroy cfn stacks to aws
 **New Lambda** (`lambdas/<name>`):
 
 - Create `lambdas/<name>/` with a `src/`, `tests/`, and `pyproject.toml` (copy `lambdas/hello` as a template).
-- Register the lambda it in a stack under `infra/`.
+- Register the lambda in a stack under `infra/`.
 
 ## License
 
