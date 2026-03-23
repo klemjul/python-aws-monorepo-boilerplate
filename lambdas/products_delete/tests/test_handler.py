@@ -32,3 +32,10 @@ def test_delete_product_returns_200(context: LambdaContext) -> None:
     body = json.loads(result["body"])
     assert body["message"] == "Product deleted"
     assert body["id"] == "product-5"
+
+
+def test_delete_product_returns_400_when_id_missing(context: LambdaContext) -> None:
+    result = handler(_apigw_event(None), context)
+    assert result["statusCode"] == 400
+    body = json.loads(result["body"])
+    assert "id" in body["message"].lower()

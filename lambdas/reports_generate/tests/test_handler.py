@@ -30,3 +30,12 @@ def test_generate_report_returns_202(context: LambdaContext) -> None:
     assert result["statusCode"] == 202
     body = json.loads(result["body"])
     assert body["message"] == "Report generation started"
+    assert isinstance(body["reportId"], str) and body["reportId"].startswith("report-")
+
+
+def test_generate_report_unique_report_id(context: LambdaContext) -> None:
+    result_a = handler(_apigw_event(), context)
+    result_b = handler(_apigw_event(), context)
+    id_a = json.loads(result_a["body"])["reportId"]
+    id_b = json.loads(result_b["body"])["reportId"]
+    assert id_a != id_b

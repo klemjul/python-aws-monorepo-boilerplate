@@ -32,3 +32,10 @@ def test_delete_user_returns_200(context: LambdaContext) -> None:
     body = json.loads(result["body"])
     assert body["message"] == "User deleted"
     assert body["id"] == "user-99"
+
+
+def test_delete_user_returns_400_when_id_missing(context: LambdaContext) -> None:
+    result = handler(_apigw_event(None), context)
+    assert result["statusCode"] == 400
+    body = json.loads(result["body"])
+    assert "id" in body["message"].lower()

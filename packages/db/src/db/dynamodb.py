@@ -48,6 +48,11 @@ def paginate_result(
     Returns:
         A dict with ``items``, ``total``, ``limit``, and ``offset`` fields.
     """
+    if limit < 0:
+        raise ValueError("limit must be >= 0")
+    if offset < 0:
+        raise ValueError("offset must be >= 0")
+
     sliced = items[offset : offset + limit]
     return {
         "items": sliced,

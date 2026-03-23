@@ -31,3 +31,10 @@ def test_get_user_returns_200_with_id(context: LambdaContext) -> None:
     assert result["statusCode"] == 200
     body = json.loads(result["body"])
     assert body["id"] == "user-42"
+
+
+def test_get_user_returns_400_when_id_missing(context: LambdaContext) -> None:
+    result = handler(_apigw_event(None), context)
+    assert result["statusCode"] == 400
+    body = json.loads(result["body"])
+    assert "id" in body["message"].lower()

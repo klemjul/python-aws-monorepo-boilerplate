@@ -70,3 +70,13 @@ def test_paginate_result_offset_beyond_length() -> None:
     items = [{"id": "1"}, {"id": "2"}]
     result = paginate_result(items, limit=10, offset=100)
     assert result["items"] == []
+
+
+def test_paginate_result_raises_on_negative_limit() -> None:
+    with pytest.raises(ValueError, match="limit must be >= 0"):
+        paginate_result([], limit=-1)
+
+
+def test_paginate_result_raises_on_negative_offset() -> None:
+    with pytest.raises(ValueError, match="offset must be >= 0"):
+        paginate_result([], offset=-1)

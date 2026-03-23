@@ -32,3 +32,10 @@ def test_get_order_returns_200_with_status(context: LambdaContext) -> None:
     body = json.loads(result["body"])
     assert body["id"] == "order-10"
     assert body["status"] == "pending"
+
+
+def test_get_order_returns_400_when_id_missing(context: LambdaContext) -> None:
+    result = handler(_apigw_event(None), context)
+    assert result["statusCode"] == 400
+    body = json.loads(result["body"])
+    assert "id" in body["message"].lower()

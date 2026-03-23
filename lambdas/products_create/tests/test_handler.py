@@ -30,3 +30,4 @@ def test_create_product_returns_201(context: LambdaContext) -> None:
     assert result["statusCode"] == 201
     body = json.loads(result["body"])
     assert body["message"] == "Product created"
+    assert body["id"] == "product-1"

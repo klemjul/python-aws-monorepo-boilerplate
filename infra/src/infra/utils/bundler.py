@@ -19,17 +19,49 @@ REPO_ROOT: str = os.path.abspath(
 )
 
 
-def deps_hash(lambda_dir: str) -> str:
-    """Compute a hash from the lambda's ``pyproject.toml`` only.
+def _hash_directory(hasher: "hashlib._Hash", directory: str) -> None:
+    """Hash all files in a directory recursively in sorted order for determinism.
 
-    The layer is rebuilt only when ``pyproject.toml`` changes, not when the
-    handler source code changes.
+    Args:
+        hasher: A :mod:`hashlib` hash object to update in place.
+        directory: Path to the directory to hash.
+    """
+    for dirpath, dirnames, filenames in os.walk(directory):
+        dirnames.sort()
+        for filename in sorted(filenames):
+            filepath = os.path.join(dirpath, filename)
+            hasher.update(filepath.encode())
+            with open(filepath, "rb") as f:
+                hasher.update(f.read())
+
+
+def deps_hash(lambda_dir: str) -> str:
+    """Compute a hash from the lambda's ``pyproject.toml`` and any workspace
+    package sources that ``DepsBundler`` vendors into the layer.
+
+    The layer is rebuilt when either:
+    - the lambda's ``pyproject.toml`` changes (dependency version bump), or
+    - the source code of any vendored workspace package changes.
     """
     hasher = hashlib.sha256()
     filepath = os.path.join(lambda_dir, "pyproject.toml")
     if os.path.exists(filepath):
         with open(filepath, "rb") as f:
-            hasher.update(f.read())
+            content = f.read()
+        hasher.update(content)
+
+        # Also hash workspace package sources so layer is rebuilt when they change.
+        try:
+            data = tomllib.loads(content.decode())
+            sources = data.get("tool", {}).get("uv", {}).get("sources", {})
+            for pkg_name, source in sources.items():
+                if isinstance(source, dict) and source.get("workspace"):
+                    pkg_src = os.path.join(REPO_ROOT, "packages", pkg_name, "src")
+                    if os.path.isdir(pkg_src):
+                        _hash_directory(hasher, pkg_src)
+        except (tomllib.TOMLDecodeError, OSError):
+            pass
+
     return hasher.hexdigest()[:32]
 
 

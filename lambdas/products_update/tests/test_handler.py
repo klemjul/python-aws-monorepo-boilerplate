@@ -32,3 +32,10 @@ def test_update_product_returns_200(context: LambdaContext) -> None:
     body = json.loads(result["body"])
     assert body["message"] == "Product updated"
     assert body["id"] == "product-3"
+
+
+def test_update_product_returns_400_when_id_missing(context: LambdaContext) -> None:
+    result = handler(_apigw_event(None), context)
+    assert result["statusCode"] == 400
+    body = json.loads(result["body"])
+    assert "id" in body["message"].lower()
