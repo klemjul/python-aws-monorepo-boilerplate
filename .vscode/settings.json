@@ -1,0 +1,42 @@
+{
+  // -----------------------------------------------------------------
+  // Formatting – delegate entirely to Ruff
+  // -----------------------------------------------------------------
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.ruff": "explicit",
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  // -----------------------------------------------------------------
+  // Linting – Ruff (replaces pylint/flake8)
+  // -----------------------------------------------------------------
+  "ruff.enable": true,
+  // ruff.toml is at the workspace root; no extra path needed
+  "ruff.configurationPreference": "filesystemFirst",
+
+  // -----------------------------------------------------------------
+  // Type checking – Mypy
+  // -----------------------------------------------------------------
+  // Run mypy from the workspace root so it picks up pyproject.toml [tool.mypy]
+  "mypy-type-checker.cwd": "${workspaceFolder}",
+  "mypy-type-checker.reportingScope": "workspace",
+  // Disable Pylance's own type checking to avoid duplicate diagnostics
+  "python.analysis.typeCheckingMode": "off",
+
+  // -----------------------------------------------------------------
+  // Testing – pytest
+  // -----------------------------------------------------------------
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+
+  // -----------------------------------------------------------------
+  // File associations
+  // -----------------------------------------------------------------
+  "files.associations": {
+    "*.toml": "toml"
+  }
+}

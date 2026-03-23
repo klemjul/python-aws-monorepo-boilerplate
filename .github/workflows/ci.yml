@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # https://github.com/actions/checkout/releases/tag/v6.0.2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # https://github.com/astral-sh/setup-uv/releases/tag/v7.6.0
+        with:
+          python-version-file: .python-version
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Ruff lint
+        run: make lint
+
+      - name: Ruff format check
+        run: make format
+
+  type-check:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # https://github.com/actions/checkout/releases/tag/v6.0.2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # https://github.com/astral-sh/setup-uv/releases/tag/v7.6.0
+        with:
+          python-version-file: .python-version
+
+      - name: Install dependencies
+        run: make install
+
+      - name: mypy
+        run: make typecheck
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #https://github.com/actions/checkout/releases/tag/v6.0.2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # https://github.com/astral-sh/setup-uv/releases/tag/v7.6.0
+        with:
+          python-version-file: .python-version
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run tests
+        run: make test-coverage
+
+  cdk-synth:
+    name: CDK Synth
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #https://github.com/actions/checkout/releases/tag/v6.0.2
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # https://github.com/astral-sh/setup-uv/releases/tag/v7.6.0
+        with:
+          python-version-file: .python-version
+
+      - name: Set up Node.js (for CDK CLI)
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # https://github.com/actions/setup-node/releases/tag/v6.3.0
+        with:
+          node-version: "22"
+
+      - name: Set up AWS CDK CLI
+        run: npm install -g aws-cdk
+
+      - name: Install dependencies
+        run: make install
+
+      - name: CDK Synth
+        run: make cdk-synth

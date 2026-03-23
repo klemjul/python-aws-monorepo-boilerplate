@@ -1,0 +1,25 @@
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "ANN", # flake8-annotations
+    "S",   # flake8-bandit
+    "RUF", # Ruff-specific rules
+]
+ignore = [
+    "S101",   # Use of assert (needed in tests)
+]
+
+[lint.per-file-ignores]
+"tests/**" = ["ANN", "S"]
+"**/tests/**" = ["ANN", "S"]
+"infra/**" = ["ANN401"]
+
+[format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
