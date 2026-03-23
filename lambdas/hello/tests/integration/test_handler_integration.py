@@ -16,9 +16,8 @@ from unittest.mock import MagicMock
 import boto3
 import pytest
 from aws_lambda_powertools.utilities.typing import LambdaContext
-from moto import mock_aws
-
 from hello.handler import handler
+from moto import mock_aws
 
 _REGION = "us-east-1"
 _FUNCTION_NAME = "hello"
