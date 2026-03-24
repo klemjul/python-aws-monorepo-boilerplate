@@ -104,4 +104,3 @@ class TestHelloLambdaPostRoute:
 
         items = greetings_table.scan()["Items"]
         assert len(items) == 2
-
