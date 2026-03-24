@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import aws_cdk as cdk
 import pytest
-from aws_cdk.assertions import Capture, Template
+from aws_cdk.assertions import Capture, Match, Template
 from infra.stacks.hello_stack import HelloStack
 
 
@@ -87,7 +87,7 @@ def test_lambda_timeout(template: Template) -> None:
 def test_lambda_log_level_env(template: Template) -> None:
     template.has_resource_properties(
         "AWS::Lambda::Function",
-        {"Environment": {"Variables": {"LOG_LEVEL": "INFO"}}},
+        {"Environment": {"Variables": Match.object_like({"LOG_LEVEL": "INFO"})}},
     )
 
 
@@ -284,3 +284,87 @@ def test_hello_stack_invokes_uv_during_synth() -> None:
         stack = HelloStack(app, "BundlerStack")
         Template.from_stack(stack)
     mock_run.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# DynamoDB table
+# ---------------------------------------------------------------------------
+
+
+def test_dynamodb_table_exists(template: Template) -> None:
+    template.resource_count_is("AWS::DynamoDB::Table", 1)
+
+
+def test_dynamodb_table_name(template: Template) -> None:
+    template.has_resource_properties(
+        "AWS::DynamoDB::Table",
+        {"TableName": "greetings"},
+    )
+
+
+def test_dynamodb_table_partition_key(template: Template) -> None:
+    template.has_resource_properties(
+        "AWS::DynamoDB::Table",
+        {
+            "KeySchema": [{"AttributeName": "id", "KeyType": "HASH"}],
+            "AttributeDefinitions": [{"AttributeName": "id", "AttributeType": "S"}],
+        },
+    )
+
+
+def test_dynamodb_table_billing_mode(template: Template) -> None:
+    template.has_resource_properties(
+        "AWS::DynamoDB::Table",
+        {"BillingMode": "PAY_PER_REQUEST"},
+    )
+
+
+def test_lambda_has_greetings_table_env(template: Template) -> None:
+    """Lambda must have a GREETINGS_TABLE env var referencing the DynamoDB table."""
+    table_ref = Capture()
+    template.has_resource_properties(
+        "AWS::Lambda::Function",
+        {
+            "Environment": {
+                "Variables": Match.object_like({"GREETINGS_TABLE": table_ref})
+            }
+        },
+    )
+    # The value must be a CloudFormation Ref to the GreetingsTable resource.
+    assert "Ref" in table_ref.as_object()
+
+
+def test_lambda_has_dynamodb_write_policy(template: Template) -> None:
+    """Lambda execution role must have a policy allowing DynamoDB write access."""
+    template.has_resource_properties(
+        "AWS::IAM::Policy",
+        {
+            "PolicyDocument": {
+                "Statement": [
+                    {
+                        "Action": [
+                            "dynamodb:BatchWriteItem",
+                            "dynamodb:PutItem",
+                            "dynamodb:UpdateItem",
+                            "dynamodb:DeleteItem",
+                            "dynamodb:DescribeTable",
+                        ],
+                        "Effect": "Allow",
+                    }
+                ]
+            }
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# API Gateway POST method
+# ---------------------------------------------------------------------------
+
+
+def test_api_gateway_post_method(template: Template) -> None:
+    """A POST method must be defined (on the /hello resource)."""
+    template.has_resource_properties(
+        "AWS::ApiGateway::Method",
+        {"HttpMethod": "POST"},
+    )
