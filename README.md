@@ -96,7 +96,7 @@ uv run pytest --cov --cov-report=term-missing
 # Run tests for a specific package
 uv run pytest packages/shared/tests/
 uv run pytest lambdas/hello/tests/
-uv run pytest scripts/hello/tests/
+uv run pytest scripts/hello_script/tests/
 ```
 
 ## Infrastructure
@@ -123,7 +123,7 @@ uv run --directory infra cdk destroy # destroy cfn stacks to aws
 
 **New Script** (`scripts/<name>`):
 
-- Create `scripts/<name>/` with a `src/`, `tests/`, and `pyproject.toml` (copy `scripts/hello` as a template).
+- Create `scripts/<name>/` with a `src/`, `tests/`, and `pyproject.toml` (copy `scripts/hello_script` as a template).
 - Add a `[project.scripts]` entry in `pyproject.toml` to declare the CLI entry point.
 - Add `scripts/<name>/tests` to `testpaths` and `scripts/<name>/src` to `mypy_path` in the root `pyproject.toml`.
 

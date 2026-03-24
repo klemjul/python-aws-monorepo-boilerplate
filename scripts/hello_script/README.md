@@ -10,20 +10,6 @@
 
 ```bash
 # Run directly with uv
-uv run --directory scripts/hello hello-script
-uv run --directory scripts/hello hello-script --name Alice
-```
-
-## Development
-
-### Running Tests
-
-```bash
-uv run pytest scripts/hello/tests/
-```
-
-### Type Checking
-
-```bash
-uv run mypy scripts/hello/src/
+uv run --directory scripts/hello_script hello-script
+uv run --directory scripts/hello_script hello-script --name Alice
 ```

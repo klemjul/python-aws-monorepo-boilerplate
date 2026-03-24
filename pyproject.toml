@@ -18,7 +18,7 @@ dev = [
 testpaths = [
     "packages/shared/tests",
     "lambdas/hello/tests",
-    "scripts",
+    "scripts/hello_script/tests",
     "infra/tests",
 ]
 
@@ -49,6 +49,6 @@ explicit_package_bases = true
 mypy_path = [
     "packages/shared/src",
     "lambdas/hello/src",
-    "scripts/hello/src",
+    "scripts/hello_script/src",
     "infra/src",
 ]
