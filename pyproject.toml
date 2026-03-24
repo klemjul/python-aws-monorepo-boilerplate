@@ -15,10 +15,12 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 testpaths = [
     "packages/shared/tests",
     "lambdas/hello/tests",
     "scripts/hello_script/tests",
+    "scripts/check_branch_name/tests",
     "infra/tests",
 ]
 
@@ -50,5 +52,6 @@ mypy_path = [
     "packages/shared/src",
     "lambdas/hello/src",
     "scripts/hello_script/src",
+    "scripts/check_branch_name/src",
     "infra/src",
 ]
