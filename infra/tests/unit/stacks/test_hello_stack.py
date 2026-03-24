@@ -295,13 +295,6 @@ def test_dynamodb_table_exists(template: Template) -> None:
     template.resource_count_is("AWS::DynamoDB::Table", 1)
 
 
-def test_dynamodb_table_name(template: Template) -> None:
-    template.has_resource_properties(
-        "AWS::DynamoDB::Table",
-        {"TableName": "greetings"},
-    )
-
-
 def test_dynamodb_table_partition_key(template: Template) -> None:
     template.has_resource_properties(
         "AWS::DynamoDB::Table",

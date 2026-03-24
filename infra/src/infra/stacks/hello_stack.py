@@ -28,7 +28,6 @@ class HelloStack(cdk.Stack):
         greetings_table = dynamodb.Table(
             self,
             "GreetingsTable",
-            table_name="greetings",
             partition_key=dynamodb.Attribute(
                 name="id",
                 type=dynamodb.AttributeType.STRING,
