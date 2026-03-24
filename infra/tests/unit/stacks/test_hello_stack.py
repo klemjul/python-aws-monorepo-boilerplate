@@ -117,7 +117,7 @@ def test_lambda_layer_compatible_runtime(template: Template) -> None:
 def test_lambda_layer_description(template: Template) -> None:
     template.has_resource_properties(
         "AWS::Lambda::LayerVersion",
-        {"Description": "Hello Lambda runtime dependencies"},
+        {"Description": "Hello World Lambda function dependencies"},
     )
 
 

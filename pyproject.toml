@@ -15,9 +15,27 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
 testpaths = [
     "packages/shared/tests",
+    "packages/auth/tests",
+    "packages/db/tests",
     "lambdas/hello/tests",
+    "lambdas/users_create/tests",
+    "lambdas/users_get/tests",
+    "lambdas/users_list/tests",
+    "lambdas/users_update/tests",
+    "lambdas/users_delete/tests",
+    "lambdas/products_create/tests",
+    "lambdas/products_get/tests",
+    "lambdas/products_list/tests",
+    "lambdas/products_update/tests",
+    "lambdas/products_delete/tests",
+    "lambdas/orders_create/tests",
+    "lambdas/orders_get/tests",
+    "lambdas/orders_list/tests",
+    "lambdas/orders_update/tests",
+    "lambdas/reports_generate/tests",
     "scripts/hello_script/tests",
     "infra/tests",
 ]
@@ -48,7 +66,24 @@ explicit_package_bases = true
 # Add a new entry here whenever a new package or lambda is introduced.
 mypy_path = [
     "packages/shared/src",
+    "packages/auth/src",
+    "packages/db/src",
     "lambdas/hello/src",
+    "lambdas/users_create/src",
+    "lambdas/users_get/src",
+    "lambdas/users_list/src",
+    "lambdas/users_update/src",
+    "lambdas/users_delete/src",
+    "lambdas/products_create/src",
+    "lambdas/products_get/src",
+    "lambdas/products_list/src",
+    "lambdas/products_update/src",
+    "lambdas/products_delete/src",
+    "lambdas/orders_create/src",
+    "lambdas/orders_get/src",
+    "lambdas/orders_list/src",
+    "lambdas/orders_update/src",
+    "lambdas/reports_generate/src",
     "scripts/hello_script/src",
     "infra/src",
 ]
