@@ -28,7 +28,7 @@ format-fix:
 
 .PHONY: typecheck
 typecheck:
-	uv run mypy packages/*/src lambdas/*/src infra/src
+	uv run mypy packages/*/src lambdas/*/src scripts/*/src infra/src
 
 # ─── Tests ────────────────────────────────────────────────────────────────────
 
@@ -47,6 +47,10 @@ test-packages:
 .PHONY: test-lambdas
 test-lambdas:
 	uv run pytest lambdas/
+
+.PHONY: test-scripts
+test-scripts:
+	uv run pytest scripts/
 
 .PHONY: test-infra
 test-infra:

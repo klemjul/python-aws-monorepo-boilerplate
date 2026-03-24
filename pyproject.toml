@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.13"
 
 [tool.uv.workspace]
-members = ["packages/*", "lambdas/*", "infra"]
+members = ["packages/*", "lambdas/*", "scripts/*", "infra"]
 
 [dependency-groups]
 dev = [
@@ -36,6 +36,7 @@ testpaths = [
     "lambdas/orders_list/tests",
     "lambdas/orders_update/tests",
     "lambdas/reports_generate/tests",
+    "scripts/hello_script/tests",
     "infra/tests",
 ]
 
@@ -83,5 +84,6 @@ mypy_path = [
     "lambdas/orders_list/src",
     "lambdas/orders_update/src",
     "lambdas/reports_generate/src",
+    "scripts/hello_script/src",
     "infra/src",
 ]
