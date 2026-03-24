@@ -95,6 +95,52 @@ uv run pytest packages/shared/tests/
 uv run pytest lambdas/hello/tests/
 ```
 
+## Tooling
+
+### Ruff (lint + format)
+
+Configuration lives in [`ruff.toml`](ruff.toml). The active rule sets are:
+
+| Code | Plugin | Purpose |
+|------|--------|---------|
+| `E`/`W` | pycodestyle | Style errors and warnings |
+| `F` | Pyflakes | Undefined names, unused imports |
+| `I` | isort | Import ordering |
+| `B` | flake8-bugbear | Likely bugs and design issues |
+| `C4` | flake8-comprehensions | Simpler list/dict/set comprehensions |
+| `UP` | pyupgrade | Modernise syntax for the target Python version |
+| `ANN` | flake8-annotations | Missing type annotations |
+| `S` | flake8-bandit | Security anti-patterns |
+| `SIM` | flake8-simplify | Simplifiable code patterns |
+| `RUF` | Ruff | Ruff-specific rules |
+
+`ANN` and `S` are relaxed inside `**/tests/**` (noise without value there).  
+`ANN401` (`Any` return type) is relaxed in `infra/**` (common in CDK constructs).
+
+### Mypy (type checking)
+
+Configuration lives in the `[tool.mypy]` section of [`pyproject.toml`](pyproject.toml).
+
+Key points:
+- **`strict = true`** enables the full set of strict checks.
+- **`mypy_path`** lists every `src/` root. Add a new entry here when introducing a new package or lambda.
+- **`exclude`** is intentionally minimal (`".venv/"` only): mypy is always invoked against explicit `src/` paths (see the `typecheck` target in the Makefile), so other build artefacts are never discovered. This mirrors the intent of `.gitignore` without duplicating every pattern.
+
+### IDE
+
+#### VS Code
+
+Recommended extensions are listed in [`.vscode/extensions.json`](.vscode/extensions.json) and workspace settings in [`.vscode/settings.json`](.vscode/settings.json):
+
+- **Ruff** handles formatting on save and import organisation.
+- **mypy-type-checker** runs mypy from the workspace root, picking up `[tool.mypy]` from `pyproject.toml`.
+- **Pylance type checking is disabled** to avoid duplicate diagnostics with mypy.
+- **pytest** is configured as the test runner.
+
+#### EditorConfig
+
+An [`.editorconfig`](.editorconfig) file is included for editors that support it (JetBrains IDEs, Vim, Emacs, etc.). It enforces UTF-8, LF line endings, a trailing newline, and 4-space indentation for Python files (2-space for JSON/YAML/TOML).
+
 ## Infrastructure
 
 ### Deploy to AWS

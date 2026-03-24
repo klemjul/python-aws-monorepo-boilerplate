@@ -10,6 +10,8 @@
     // TOML files (pyproject.toml, etc.)
     "tamasfe.even-better-toml",
     // YAML files (GitHub Actions CI)
-    "redhat.vscode-yaml"
+    "redhat.vscode-yaml",
+    // Respect .editorconfig settings
+    "editorconfig.editorconfig"
   ]
 }
