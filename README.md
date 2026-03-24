@@ -33,6 +33,9 @@ python-aws-monorepo-boilerplate/
 ├── lambdas/
 │   └── hello/                      # lambdas
 │   └── ...
+├── scripts/
+│   └── hello/                      # scripts
+│   └── ...
 ├── infra/                          # AWS CDK app
 ├── pyproject.toml                  # Root uv workspace, dev tools, mypy config
 ├── ruff.toml                       # Ruff lint + format config
@@ -93,6 +96,7 @@ uv run pytest --cov --cov-report=term-missing
 # Run tests for a specific package
 uv run pytest packages/shared/tests/
 uv run pytest lambdas/hello/tests/
+uv run pytest scripts/hello_script/tests/
 ```
 
 ## Infrastructure
@@ -116,6 +120,12 @@ uv run --directory infra cdk destroy # destroy cfn stacks to aws
 
 - Create `lambdas/<name>/` with a `src/`, `tests/`, and `pyproject.toml` (copy `lambdas/hello` as a template).
 - Register the lambda in a stack under `infra/`.
+
+**New Script** (`scripts/<name>`):
+
+- Create `scripts/<name>/` with a `src/`, `tests/`, and `pyproject.toml` (copy `scripts/hello_script` as a template).
+- Add a `[project.scripts]` entry in `pyproject.toml` to declare the CLI entry point.
+- Add `scripts/<name>/tests` to `testpaths` and `scripts/<name>/src` to `mypy_path` in the root `pyproject.toml`.
 
 ## License
 
