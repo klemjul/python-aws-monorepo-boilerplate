@@ -5,6 +5,7 @@ requires-python = ">=3.13"
 [manifest]
 members = [
     "hello",
+    "hello-script",
     "infra",
     "python-aws-monorepo-boilerplate",
     "shared",
@@ -467,6 +468,11 @@ dev = [
     { name = "boto3-stubs", extras = ["dynamodb", "lambda", "apigateway"], specifier = ">=1.35.0" },
     { name = "moto", extras = ["dynamodb"], specifier = ">=5.1.22" },
 ]
+
+[[package]]
+name = "hello-script"
+version = "0.1.0"
+source = { editable = "scripts/hello" }
 
 [[package]]
 name = "idna"
