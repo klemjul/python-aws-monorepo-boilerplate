@@ -455,7 +455,7 @@ def test_deps_hash_returns_consistent_value(tmp_path: Path) -> None:
 
 
 def test_deps_hash_returns_empty_hash_when_pyproject_missing(tmp_path: Path) -> None:
-    """deps_hash must return the SHA-256 of empty input when pyproject.toml is absent."""
+    """deps_hash must return the SHA-256 of empty input when pyproject.toml is absent"""
     from infra.utils.bundler import deps_hash
 
     # No pyproject.toml in tmp_path
@@ -487,15 +487,12 @@ def test_deps_hash_includes_workspace_package_sources(tmp_path: Path) -> None:
     lambda_dir.mkdir(parents=True)
     (lambda_dir / "pyproject.toml").write_bytes(
         b'[project]\nname = "hello"\n'
-        b'\n'
-        b'[tool.uv.sources]\n'
-        b'mypkg = { workspace = true }\n'
+        b"\n"
+        b"[tool.uv.sources]\n"
+        b"mypkg = { workspace = true }\n"
     )
     (tmp_path / "pyproject.toml").write_bytes(
-        b'[project]\nname = "root"\n'
-        b'\n'
-        b'[tool.uv.workspace]\n'
-        b'members = ["packages/*"]\n'
+        b'[project]\nname = "root"\n\n[tool.uv.workspace]\nmembers = ["packages/*"]\n'
     )
 
     real_repo_root = bundler_mod.REPO_ROOT
@@ -511,9 +508,7 @@ def test_deps_hash_includes_workspace_package_sources(tmp_path: Path) -> None:
     finally:
         bundler_mod.REPO_ROOT = real_repo_root
 
-    assert h1 != h2, (
-        "deps_hash must change when workspace package source changes"
-    )
+    assert h1 != h2, "deps_hash must change when workspace package source changes"
 
 
 def test_deps_hash_includes_workspace_package_for_real_repo() -> None:

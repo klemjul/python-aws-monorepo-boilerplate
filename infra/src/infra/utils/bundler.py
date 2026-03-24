@@ -73,9 +73,7 @@ def deps_hash(lambda_dir: str) -> str:
                 .get("members", [])
             )
             for pattern in member_patterns:
-                for member_dir in sorted(
-                    glob.glob(os.path.join(REPO_ROOT, pattern))
-                ):
+                for member_dir in sorted(glob.glob(os.path.join(REPO_ROOT, pattern))):
                     member_pyproject = os.path.join(member_dir, "pyproject.toml")
                     if not os.path.exists(member_pyproject):
                         continue
