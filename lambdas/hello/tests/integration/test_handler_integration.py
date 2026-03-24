@@ -104,3 +104,17 @@ class TestHelloLambdaPostRoute:
 
         items = greetings_table.scan()["Items"]
         assert len(items) == 2
+
+    def test_post_invalid_json_body_returns_400(
+        self, greetings_table: Any, lambda_context: LambdaContext
+    ) -> None:
+        event = {**_post_event(), "body": "not-json"}
+        result = handler(event, lambda_context)
+        assert result["statusCode"] == 400
+
+    def test_post_non_object_json_body_returns_400(
+        self, greetings_table: Any, lambda_context: LambdaContext
+    ) -> None:
+        event = {**_post_event(), "body": json.dumps(["a", "list"])}
+        result = handler(event, lambda_context)
+        assert result["statusCode"] == 400
