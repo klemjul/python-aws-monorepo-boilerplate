@@ -19,6 +19,7 @@
 | [pytest](https://docs.pytest.org/en/stable/)                           | Test framework                      |
 | [mypy](https://mypy-lang.org/)                                         | Static type checker                 |
 | [AWS CDK (Python)](https://docs.aws.amazon.com/cdk/v2/guide/home.html) | Infrastructure as Code              |
+| [pre-commit](https://pre-commit.com/)                                  | Git hook manager                    |
 
 ---
 
@@ -27,6 +28,7 @@
 ```
 python-aws-monorepo-boilerplate/
 ├── .github/workflows/ci.yml        # CI: lint, type-check, test, CDK synth
+├── .pre-commit-config.yaml         # Pre-commit hooks (lint, format, branch name)
 ├── packages/
 │   └── shared/                     # libraries
 │   └── ...
@@ -35,6 +37,7 @@ python-aws-monorepo-boilerplate/
 │   └── ...
 ├── scripts/
 │   └── hello/                      # scripts
+│   └── check_branch_name/          # pre-commit hook: validates branch names
 │   └── ...
 ├── infra/                          # AWS CDK app
 ├── pyproject.toml                  # Root uv workspace, dev tools, mypy config
@@ -97,6 +100,70 @@ uv run pytest --cov --cov-report=term-missing
 uv run pytest packages/shared/tests/
 uv run pytest lambdas/hello/tests/
 uv run pytest scripts/hello_script/tests/
+```
+
+## Pre-commit Hooks
+
+This repository ships a `.pre-commit-config.yaml` that enforces code quality on every commit:
+
+| Hook                  | Purpose                                              |
+| --------------------- | ---------------------------------------------------- |
+| `trailing-whitespace` | Remove trailing whitespace                           |
+| `end-of-file-fixer`   | Ensure files end with a newline                      |
+| `check-yaml`          | Validate YAML syntax                                 |
+| `check-added-large-files` | Reject accidental large-file commits            |
+| `ruff`                | Lint and auto-fix Python code                        |
+| `ruff-format`         | Format Python code                                   |
+| `check-branch-name`   | Enforce the branch naming convention (see below)     |
+
+### Setup
+
+```bash
+pip install pre-commit   # or: uv tool install pre-commit
+pre-commit install
+```
+
+After that, hooks run automatically on every `git commit`.
+
+### Branch Naming Convention
+
+The `check-branch-name` hook (implemented in `scripts/check_branch_name/`) rejects commits
+made on branches that do not match the expected pattern:
+
+```
+main | master | develop
+<type>/<description>
+```
+
+Allowed types: `feature`, `bugfix`, `hotfix`, `release`, `chore`, `docs`, `refactor`, `test`
+
+The `<description>` must use only **lowercase letters, digits, hyphens, dots, or slashes** and
+must not be empty.
+
+**Valid examples**
+
+```
+main
+feature/add-login
+bugfix/fix-null-pointer
+hotfix/urgent-security-patch
+release/1.2.0
+chore/update-deps
+```
+
+**Invalid examples**
+
+```
+my-feature            # missing type prefix
+Feature/add-login     # uppercase type
+feature/             # empty description
+unknown/my-branch     # unrecognised type
+```
+
+You can also run the hook manually at any time:
+
+```bash
+uv run check-branch-name
 ```
 
 ## Infrastructure
