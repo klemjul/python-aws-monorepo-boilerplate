@@ -23,19 +23,10 @@ testpaths = [
 
 [tool.mypy]
 python_version = "3.13"
-exclude = [
-    "\\.venv/",
-    "venv/",
-    "build/",
-    "dist/",
-    "__pycache__/",
-    "\\.egg-info/",
-    "\\.eggs/",
-    "cdk\\.out/",
-    "node_modules/",
-    "\\.tox/",
-    "\\.nox/",
-]
+# mypy is invoked against explicit src/ paths (see Makefile `typecheck` target),
+# so only the virtual-env needs to be excluded as a safety net.
+# This mirrors the intent of .gitignore without duplicating every pattern here.
+exclude = ["\\.venv/"]
 strict = true
 warn_return_any = true
 warn_unused_configs = true

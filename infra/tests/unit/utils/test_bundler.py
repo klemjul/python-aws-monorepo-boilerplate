@@ -56,9 +56,9 @@ def test_try_bundle_raises_when_uv_missing(tmp_path: Path) -> None:
     with (
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value=None),
+        pytest.raises(RuntimeError, match="'uv' not found"),
     ):
-        with pytest.raises(RuntimeError, match="'uv' not found"):
-            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
 
 
 def test_try_bundle_creates_python_dir_even_when_uv_missing(tmp_path: Path) -> None:
@@ -67,9 +67,9 @@ def test_try_bundle_creates_python_dir_even_when_uv_missing(tmp_path: Path) -> N
     with (
         patch.object(sys, "platform", "linux"),
         patch("infra.utils.bundler.shutil.which", return_value=None),
+        pytest.raises(RuntimeError),
     ):
-        with pytest.raises(RuntimeError):
-            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
     assert os.path.isdir(os.path.join(str(tmp_path), "python"))
 
 
@@ -104,9 +104,9 @@ def test_try_bundle_raises_on_export_failure(tmp_path: Path) -> None:
         patch("infra.utils.bundler.subprocess.run", mock_run),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
+        pytest.raises(RuntimeError, match="uv export failed"),
     ):
-        with pytest.raises(RuntimeError, match="uv export failed"):
-            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
 
 
 def test_try_bundle_raises_on_install_failure(tmp_path: Path) -> None:
@@ -120,9 +120,9 @@ def test_try_bundle_raises_on_install_failure(tmp_path: Path) -> None:
         patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
+        pytest.raises(RuntimeError, match="uv pip install failed"),
     ):
-        with pytest.raises(RuntimeError, match="uv pip install failed"):
-            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
 
 
 def test_try_bundle_install_error_includes_stderr(tmp_path: Path) -> None:
@@ -136,9 +136,9 @@ def test_try_bundle_install_error_includes_stderr(tmp_path: Path) -> None:
         patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
+        pytest.raises(RuntimeError, match="install error details"),
     ):
-        with pytest.raises(RuntimeError, match="install error details"):
-            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
 
 
 # ---------------------------------------------------------------------------
@@ -215,9 +215,9 @@ def test_try_bundle_warns_on_non_linux(tmp_path: Path) -> None:
         patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
+        pytest.warns(RuntimeWarning, match="not Linux"),
     ):
-        with pytest.warns(RuntimeWarning, match="not Linux"):
-            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
 
 
 def test_try_bundle_no_warning_on_linux(tmp_path: Path) -> None:
@@ -231,10 +231,10 @@ def test_try_bundle_no_warning_on_linux(tmp_path: Path) -> None:
         patch("infra.utils.bundler.shutil.copytree"),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
+        warnings.catch_warnings(),
     ):
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+        warnings.simplefilter("error")
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
 
 
 # ---------------------------------------------------------------------------
@@ -363,9 +363,9 @@ def test_try_bundle_propagates_oserror(tmp_path: Path) -> None:
         patch("infra.utils.bundler.subprocess.run", side_effect=OSError("exec failed")),
         patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
         patch("infra.utils.bundler.os.unlink"),
+        pytest.raises(OSError, match="exec failed"),
     ):
-        with pytest.raises(OSError, match="exec failed"):
-            bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
 
 
 # ---------------------------------------------------------------------------
@@ -440,9 +440,11 @@ def test_gitignore_exclude_patterns_reads_root_gitignore() -> None:
 def test_gitignore_exclude_patterns_excludes_comments_and_blank_lines() -> None:
     """gitignore_exclude_patterns must not include comments or blank lines."""
     fake_gitignore = "# comment\n\n__pycache__/\n*.pyc\n"
-    with patch("builtins.open", mock_open(read_data=fake_gitignore)):
-        with patch("infra.utils.bundler.os.path.exists", return_value=True):
-            result = gitignore_exclude_patterns()
+    with (
+        patch("builtins.open", mock_open(read_data=fake_gitignore)),
+        patch("infra.utils.bundler.os.path.exists", return_value=True),
+    ):
+        result = gitignore_exclude_patterns()
     assert "# comment" not in result
     assert "" not in result
     assert "__pycache__/" in result
