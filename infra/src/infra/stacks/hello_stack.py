@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import aws_cdk as cdk
 from aws_cdk import aws_apigateway as apigw
+from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
@@ -24,7 +25,19 @@ class HelloStack(cdk.Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs: Any) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        hello_fn = self._create_hello_function()
+        greetings_table = dynamodb.Table(
+            self,
+            "GreetingsTable",
+            partition_key=dynamodb.Attribute(
+                name="id",
+                type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=cdk.RemovalPolicy.DESTROY,
+        )
+
+        hello_fn = self._create_hello_function(greetings_table.table_name)
+        greetings_table.grant_write_data(hello_fn)
 
         api = apigw.RestApi(
             self,
@@ -37,11 +50,16 @@ class HelloStack(cdk.Stack):
         hello_integration = apigw.LambdaIntegration(hello_fn)
         hello_resource = api.root.add_resource("hello")
         hello_resource.add_method("GET", hello_integration)
+        hello_resource.add_method("POST", hello_integration)
 
         cdk.CfnOutput(self, "ApiUrl", value=api.url, description="API Gateway URL")
 
-    def _create_hello_function(self) -> lambda_.Function:
-        """Create the Hello Lambda function with its dependencies layer."""
+    def _create_hello_function(self, greetings_table_name: str) -> lambda_.Function:
+        """Create the Hello Lambda function with its dependencies layer.
+
+        Args:
+            greetings_table_name: Name of the DynamoDB table for storing greetings.
+        """
         # HelloDepsLayer: install only the runtime deps.
         # The asset hash is derived from pyproject.toml so the layer is only
         # rebuilt when the dependency changes.
@@ -87,6 +105,7 @@ class HelloStack(cdk.Stack):
             memory_size=256,
             environment={
                 "LOG_LEVEL": "INFO",
+                "GREETINGS_TABLE": greetings_table_name,
             },
             description="Hello World Lambda function",
         )

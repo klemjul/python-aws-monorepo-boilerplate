@@ -63,3 +63,9 @@ def test_handler_response_has_content_type(context: LambdaContext) -> None:
 def test_handler_various_names(name: str, context: LambdaContext) -> None:
     result = handler(_apigw_event({"name": name}), context)
     assert json.loads(result["body"]) == {"message": f"Hello, {name}!"}
+
+
+def test_handler_unsupported_method_returns_405(context: LambdaContext) -> None:
+    event = {**_apigw_event(), "httpMethod": "DELETE"}
+    result = handler(event, context)
+    assert result["statusCode"] == 405
