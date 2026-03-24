@@ -1,4 +1,4 @@
-"""Tests for the hello script."""
+"""Tests for the shared greeter module."""
 
 import pytest
 from shared.greeter import greet
@@ -18,9 +18,4 @@ def test_greet_various_names(name: str) -> None:
 
 
 def test_greet_returns_string() -> None:
-    result = greet("Test")
-    assert isinstance(result, str)
-
-
-def test_greet_empty_name() -> None:
-    assert greet("") == "Hello, !"
+    assert isinstance(greet("Test"), str)

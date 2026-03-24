@@ -2,17 +2,7 @@
 
 import argparse
 
-
-def greet(name: str) -> str:
-    """Return a greeting message for the given name.
-
-    Args:
-        name: The name to greet.
-
-    Returns:
-        A greeting string such as "Hello, Alice!".
-    """
-    return f"Hello, {name}!"
+from shared.greeter import greet
 
 
 def main() -> None:

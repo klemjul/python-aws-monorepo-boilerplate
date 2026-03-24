@@ -1,5 +1,5 @@
 """Hello script package."""
 
-from hello_script.main import greet, main
+from hello_script.main import main
 
-__all__ = ["greet", "main"]
+__all__ = ["main"]

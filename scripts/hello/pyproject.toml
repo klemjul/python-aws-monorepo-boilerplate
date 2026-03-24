@@ -3,7 +3,12 @@ name = "hello-script"
 version = "0.1.0"
 description = "Example Hello World script"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "shared",
+]
+
+[tool.uv.sources]
+shared = { workspace = true }
 
 [project.scripts]
 hello-script = "hello_script.main:main"
