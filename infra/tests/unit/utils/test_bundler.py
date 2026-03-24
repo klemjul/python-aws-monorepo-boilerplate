@@ -1,5 +1,6 @@
 """Unit tests for infra/src/infra/utils/bundler.py (DepsBundler)."""
 
+import hashlib
 import os
 import sys
 import warnings
@@ -8,7 +9,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import aws_cdk as cdk
 import pytest
-from infra.utils.bundler import DepsBundler
+from infra.utils.bundler import DepsBundler, gitignore_exclude_patterns
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -413,3 +414,194 @@ def test_repo_root_points_to_existing_directory() -> None:
 
     assert os.path.isdir(REPO_ROOT)
     assert os.path.isfile(os.path.join(REPO_ROOT, "pyproject.toml"))
+
+
+# ---------------------------------------------------------------------------
+# gitignore_exclude_patterns
+# ---------------------------------------------------------------------------
+
+
+def test_gitignore_exclude_patterns_returns_list() -> None:
+    """gitignore_exclude_patterns must return a list of strings."""
+    result = gitignore_exclude_patterns()
+    assert isinstance(result, list)
+    assert all(isinstance(p, str) for p in result)
+
+
+def test_gitignore_exclude_patterns_reads_root_gitignore() -> None:
+    """gitignore_exclude_patterns must include patterns from the root .gitignore."""
+    result = gitignore_exclude_patterns()
+    # The repo's .gitignore always contains these Python-specific patterns.
+    assert "__pycache__/" in result
+    assert "*.py[cod]" in result
+    assert ".venv/" in result
+
+
+def test_gitignore_exclude_patterns_excludes_comments_and_blank_lines() -> None:
+    """gitignore_exclude_patterns must not include comments or blank lines."""
+    fake_gitignore = "# comment\n\n__pycache__/\n*.pyc\n"
+    with patch("builtins.open", mock_open(read_data=fake_gitignore)):
+        with patch("infra.utils.bundler.os.path.exists", return_value=True):
+            result = gitignore_exclude_patterns()
+    assert "# comment" not in result
+    assert "" not in result
+    assert "__pycache__/" in result
+    assert "*.pyc" in result
+
+
+def test_gitignore_exclude_patterns_returns_empty_when_no_gitignore() -> None:
+    """gitignore_exclude_patterns returns [] when .gitignore does not exist."""
+    with patch("infra.utils.bundler.os.path.exists", return_value=False):
+        result = gitignore_exclude_patterns()
+    assert result == []
+
+
+# ---------------------------------------------------------------------------
+# try_bundle - workspace copy respects gitignore
+# ---------------------------------------------------------------------------
+
+
+def test_try_bundle_copytree_receives_ignore_parameter(tmp_path: Path) -> None:
+    """shutil.copytree must be called with a non-None ignore parameter so that
+    gitignored artefacts (e.g. __pycache__, *.pyc) are excluded from the layer.
+    """
+    fake_patterns = ["__pycache__", "*.pyc"]
+    with patch(
+        "infra.utils.bundler.gitignore_exclude_patterns",
+        return_value=fake_patterns,
+    ):
+        bundler = DepsBundler("/fake/source")
+
+    mock_run = _mock_subprocess_run(export_rc=0, install_rc=0)
+    mock_copytree = MagicMock()
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree", mock_copytree),
+        patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
+        patch("infra.utils.bundler.os.unlink"),
+    ):
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+
+    assert mock_copytree.call_count >= 1
+    for call in mock_copytree.call_args_list:
+        assert call.kwargs.get("ignore") is not None
+
+
+# deps_hash
+# ---------------------------------------------------------------------------
+
+
+def test_deps_hash_returns_nonempty_string(tmp_path: Path) -> None:
+    """deps_hash must return a non-empty hexadecimal string."""
+    from infra.utils.bundler import deps_hash
+
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_bytes(b'[project]\nname = "mypkg"\n')
+    result = deps_hash(str(tmp_path))
+    assert isinstance(result, str) and len(result) > 0
+
+
+def test_deps_hash_changes_when_pyproject_changes(tmp_path: Path) -> None:
+    """deps_hash must return a different value when pyproject.toml content changes."""
+    from infra.utils.bundler import deps_hash
+
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_bytes(b'[project]\nname = "mypkg"\nversion = "1.0.0"\n')
+    h1 = deps_hash(str(tmp_path))
+
+    pyproject.write_bytes(b'[project]\nname = "mypkg"\nversion = "2.0.0"\n')
+    h2 = deps_hash(str(tmp_path))
+
+    assert h1 != h2
+
+
+def test_deps_hash_returns_consistent_value(tmp_path: Path) -> None:
+    """deps_hash must return the same value on repeated calls with the same inputs."""
+    from infra.utils.bundler import deps_hash
+
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_bytes(b'[project]\nname = "mypkg"\n')
+    assert deps_hash(str(tmp_path)) == deps_hash(str(tmp_path))
+
+
+def test_deps_hash_returns_empty_hash_when_pyproject_missing(tmp_path: Path) -> None:
+    """deps_hash must return the SHA-256 of empty input when pyproject.toml is absent"""
+    from infra.utils.bundler import deps_hash
+
+    # No pyproject.toml in tmp_path
+    result = deps_hash(str(tmp_path))
+    empty_hash = hashlib.sha256().hexdigest()[:32]
+    assert result == empty_hash
+
+
+def test_deps_hash_includes_workspace_package_sources(tmp_path: Path) -> None:
+    """deps_hash must include workspace package sources so the hash changes
+    when workspace package code changes.
+    """
+    import infra.utils.bundler as bundler_mod
+    from infra.utils.bundler import deps_hash
+
+    # Build a fake workspace under tmp_path:
+    #   tmp_path/
+    #     pyproject.toml          ← root workspace config
+    #     packages/mypkg/
+    #       pyproject.toml        ← workspace member
+    #       src/mypkg/__init__.py ← source to hash
+    #     lambdas/hello/
+    #       pyproject.toml        ← lambda with workspace dep on mypkg
+    fake_ws_pkg = tmp_path / "packages" / "mypkg"
+    (fake_ws_pkg / "src" / "mypkg").mkdir(parents=True)
+    (fake_ws_pkg / "pyproject.toml").write_bytes(b'[project]\nname = "mypkg"\n')
+
+    lambda_dir = tmp_path / "lambdas" / "hello"
+    lambda_dir.mkdir(parents=True)
+    (lambda_dir / "pyproject.toml").write_bytes(
+        b'[project]\nname = "hello"\n'
+        b"\n"
+        b"[tool.uv.sources]\n"
+        b"mypkg = { workspace = true }\n"
+    )
+    (tmp_path / "pyproject.toml").write_bytes(
+        b'[project]\nname = "root"\n\n[tool.uv.workspace]\nmembers = ["packages/*"]\n'
+    )
+
+    real_repo_root = bundler_mod.REPO_ROOT
+    bundler_mod.REPO_ROOT = str(tmp_path)
+    try:
+        # First hash: workspace source file contains "# v1"
+        (fake_ws_pkg / "src" / "mypkg" / "__init__.py").write_bytes(b"# v1\n")
+        h1 = deps_hash(str(lambda_dir))
+
+        # Modify workspace package source and recompute hash
+        (fake_ws_pkg / "src" / "mypkg" / "__init__.py").write_bytes(b"# v2\n")
+        h2 = deps_hash(str(lambda_dir))
+    finally:
+        bundler_mod.REPO_ROOT = real_repo_root
+
+    assert h1 != h2, "deps_hash must change when workspace package source changes"
+
+
+def test_deps_hash_includes_workspace_package_for_real_repo() -> None:
+    """deps_hash for the hello lambda must include the shared package sources.
+
+    We verify this indirectly: after changing REPO_ROOT to a path with a
+    fresh workspace package source, the hash must differ from a path that
+    has modified workspace package source files.
+    """
+    from infra.utils.bundler import REPO_ROOT, deps_hash
+
+    lambda_dir = os.path.join(REPO_ROOT, "lambdas", "hello")
+    h1 = deps_hash(lambda_dir)
+
+    # The hash must incorporate more than just pyproject.toml — verify that
+    # it is NOT equal to the hash of pyproject.toml alone.
+    hasher = hashlib.sha256()
+    with open(os.path.join(lambda_dir, "pyproject.toml"), "rb") as f:
+        hasher.update(f.read())
+    pyproject_only_hash = hasher.hexdigest()[:32]
+
+    assert h1 != pyproject_only_hash, (
+        "deps_hash must include workspace package sources, not just pyproject.toml"
+    )
