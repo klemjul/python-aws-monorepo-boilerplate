@@ -1,7 +1,5 @@
 """Tests for db.dynamodb utilities."""
 
-import os
-
 import pytest
 from db.dynamodb import build_key, paginate_result, table_name
 
@@ -15,8 +13,8 @@ def test_table_name_returns_env_var(monkeypatch: pytest.MonkeyPatch) -> None:
     assert table_name("users") == "prod-users-table"
 
 
-def test_table_name_falls_back_to_logical_name() -> None:
-    os.environ.pop("DYNAMODB_TABLE_ORDERS", None)
+def test_table_name_falls_back_to_logical_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("DYNAMODB_TABLE_ORDERS", raising=False)
     assert table_name("orders") == "orders"
 
 
