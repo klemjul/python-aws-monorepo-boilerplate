@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, mock_open, patch
 
 import aws_cdk as cdk
 import pytest
-from infra.utils.bundler import DepsBundler
+from infra.utils.bundler import DepsBundler, gitignore_exclude_patterns
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -417,6 +417,78 @@ def test_repo_root_points_to_existing_directory() -> None:
 
 
 # ---------------------------------------------------------------------------
+# gitignore_exclude_patterns
+# ---------------------------------------------------------------------------
+
+
+def test_gitignore_exclude_patterns_returns_list() -> None:
+    """gitignore_exclude_patterns must return a list of strings."""
+    result = gitignore_exclude_patterns()
+    assert isinstance(result, list)
+    assert all(isinstance(p, str) for p in result)
+
+
+def test_gitignore_exclude_patterns_reads_root_gitignore() -> None:
+    """gitignore_exclude_patterns must include patterns from the root .gitignore."""
+    result = gitignore_exclude_patterns()
+    # The repo's .gitignore always contains these Python-specific patterns.
+    assert "__pycache__/" in result
+    assert "*.py[cod]" in result
+    assert ".venv/" in result
+
+
+def test_gitignore_exclude_patterns_excludes_comments_and_blank_lines() -> None:
+    """gitignore_exclude_patterns must not include comments or blank lines."""
+    fake_gitignore = "# comment\n\n__pycache__/\n*.pyc\n"
+    with patch("builtins.open", mock_open(read_data=fake_gitignore)):
+        with patch("infra.utils.bundler.os.path.exists", return_value=True):
+            result = gitignore_exclude_patterns()
+    assert "# comment" not in result
+    assert "" not in result
+    assert "__pycache__/" in result
+    assert "*.pyc" in result
+
+
+def test_gitignore_exclude_patterns_returns_empty_when_no_gitignore() -> None:
+    """gitignore_exclude_patterns returns [] when .gitignore does not exist."""
+    with patch("infra.utils.bundler.os.path.exists", return_value=False):
+        result = gitignore_exclude_patterns()
+    assert result == []
+
+
+# ---------------------------------------------------------------------------
+# try_bundle - workspace copy respects gitignore
+# ---------------------------------------------------------------------------
+
+
+def test_try_bundle_copytree_receives_ignore_parameter(tmp_path: Path) -> None:
+    """shutil.copytree must be called with a non-None ignore parameter so that
+    gitignored artefacts (e.g. __pycache__, *.pyc) are excluded from the layer.
+    """
+    fake_patterns = ["__pycache__", "*.pyc"]
+    with patch(
+        "infra.utils.bundler.gitignore_exclude_patterns",
+        return_value=fake_patterns,
+    ):
+        bundler = DepsBundler("/fake/source")
+
+    mock_run = _mock_subprocess_run(export_rc=0, install_rc=0)
+    mock_copytree = MagicMock()
+    with (
+        patch.object(sys, "platform", "linux"),
+        patch("infra.utils.bundler.shutil.which", return_value="/usr/bin/uv"),
+        patch("infra.utils.bundler.subprocess.run", mock_run),
+        patch("infra.utils.bundler.shutil.copytree", mock_copytree),
+        patch("builtins.open", mock_open(read_data=_FAKE_PYPROJECT)),
+        patch("infra.utils.bundler.os.unlink"),
+    ):
+        bundler.try_bundle(str(tmp_path), MagicMock(spec=cdk.BundlingOptions))
+
+    assert mock_copytree.call_count >= 1
+    for call in mock_copytree.call_args_list:
+        assert call.kwargs.get("ignore") is not None
+
+
 # deps_hash
 # ---------------------------------------------------------------------------
 
