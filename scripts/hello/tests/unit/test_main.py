@@ -1,26 +1,33 @@
-"""Tests for the hello script."""
+"""Tests for the hello script CLI."""
+
+import sys
 
 import pytest
-from shared.greeter import greet
 
 
-def test_greet_default_name() -> None:
-    assert greet("World") == "Hello, World!"
+def test_main_default_name(capsys: pytest.CaptureFixture[str]) -> None:
+    from hello_script.main import main
+
+    sys.argv = ["hello-script"]
+    main()
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "Hello, World!"
 
 
-def test_greet_with_name() -> None:
-    assert greet("Alice") == "Hello, Alice!"
+def test_main_with_name_argument(capsys: pytest.CaptureFixture[str]) -> None:
+    from hello_script.main import main
+
+    sys.argv = ["hello-script", "--name", "Alice"]
+    main()
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "Hello, Alice!"
 
 
 @pytest.mark.parametrize("name", ["Bob", "Charlie", "Django"])
-def test_greet_various_names(name: str) -> None:
-    assert greet(name) == f"Hello, {name}!"
+def test_main_various_names(name: str, capsys: pytest.CaptureFixture[str]) -> None:
+    from hello_script.main import main
 
-
-def test_greet_returns_string() -> None:
-    result = greet("Test")
-    assert isinstance(result, str)
-
-
-def test_greet_empty_name() -> None:
-    assert greet("") == "Hello, !"
+    sys.argv = ["hello-script", "--name", name]
+    main()
+    captured = capsys.readouterr()
+    assert captured.out.strip() == f"Hello, {name}!"
