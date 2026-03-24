@@ -12,7 +12,6 @@ from infra.utils.bundler import (
     REPO_ROOT,
     DepsBundler,
     deps_hash,
-    gitignore_exclude_patterns,
 )
 
 LAMBDA_DIR = os.path.join(REPO_ROOT, "lambdas", "hello")
@@ -79,8 +78,6 @@ class HelloStack(cdk.Stack):
             handler="hello.handler.handler",
             code=lambda_.Code.from_asset(
                 os.path.join(LAMBDA_DIR, "src"),
-                exclude=gitignore_exclude_patterns(),
-                ignore_mode=cdk.IgnoreMode.GIT,
             ),
             layers=[hello_deps_layer],
             timeout=cdk.Duration.seconds(30),

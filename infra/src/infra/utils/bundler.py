@@ -19,26 +19,6 @@ REPO_ROOT: str = os.path.abspath(
 )
 
 
-def gitignore_exclude_patterns() -> list[str]:
-    """Return non-empty, non-comment lines from the root ``.gitignore``.
-
-    The returned patterns can be passed directly to CDK ``exclude`` (together
-    with ``ignore_mode=cdk.IgnoreMode.GIT``) or stripped of trailing slashes
-    and forwarded to ``shutil.ignore_patterns``.
-
-    Returns an empty list when the ``.gitignore`` file does not exist.
-    """
-    gitignore_path = os.path.join(REPO_ROOT, ".gitignore")
-    patterns: list[str] = []
-    if os.path.exists(gitignore_path):
-        with open(gitignore_path) as f:
-            for line in f:
-                stripped = line.strip()
-                if stripped and not stripped.startswith("#"):
-                    patterns.append(stripped)
-    return patterns
-
-
 def deps_hash(lambda_dir: str) -> str:
     """Compute a hash from the lambda's ``pyproject.toml`` only.
 
@@ -72,7 +52,6 @@ class DepsBundler:
                 deps should be bundled (e.g. the lambda directory).
         """
         self._source_dir = source_dir
-        self._gitignore_patterns = gitignore_exclude_patterns()
 
     def try_bundle(self, output_dir: str, _options: cdk.BundlingOptions) -> bool:
         """Install runtime deps of ``source_dir`` into ``output_dir/python``.
@@ -154,19 +133,16 @@ class DepsBundler:
             return True
 
         # For workspace packages, copy their src/ into the target python_dir.
-        # Strip trailing slashes from gitignore patterns so shutil.ignore_patterns
-        # can match directory entries by name.
-        _gitignore = [p.rstrip("/") for p in self._gitignore_patterns]
-        _ignore_fn = shutil.ignore_patterns(*_gitignore)
         for ws_path in workspace_paths:
             src_dir = os.path.join(ws_path, "src")
             if os.path.isdir(src_dir):
-                shutil.copytree(
-                    src_dir,
-                    python_dir,
-                    dirs_exist_ok=True,
-                    ignore=_ignore_fn,
-                )
+                for entry in os.listdir(src_dir):
+                    src = os.path.join(src_dir, entry)
+                    dst = os.path.join(python_dir, entry)
+                    if os.path.isdir(src):
+                        shutil.copytree(src, dst, dirs_exist_ok=True)
+                    else:
+                        shutil.copy2(src, dst)
 
         if not requirements:
             return True
