@@ -7,7 +7,7 @@ import aws_cdk as cdk
 from aws_cdk import aws_lambda as lambda_
 from constructs import Construct
 
-from infra.utils.bundler import DepsBundler, deps_hash
+from infra.utils.bundler import DepsBundler, deps_hash, gitignore_exclude_patterns
 
 
 def create_lambda_function(
@@ -67,6 +67,8 @@ def create_lambda_function(
         handler=handler,
         code=lambda_.Code.from_asset(
             os.path.join(lambda_dir, "src"),
+            exclude=gitignore_exclude_patterns(),
+            ignore_mode=cdk.IgnoreMode.GIT,
         ),
         layers=[layer],
         timeout=cdk.Duration.seconds(30),

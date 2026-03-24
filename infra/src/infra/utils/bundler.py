@@ -1,5 +1,6 @@
 """Local CDK bundler utilities."""
 
+import glob
 import hashlib
 import os
 import re
@@ -19,48 +20,91 @@ REPO_ROOT: str = os.path.abspath(
 )
 
 
-def _hash_directory(hasher: "hashlib._Hash", directory: str) -> None:
-    """Hash all files in a directory recursively in sorted order for determinism.
+def gitignore_exclude_patterns() -> list[str]:
+    """Return non-empty, non-comment lines from the root ``.gitignore``.
 
-    Args:
-        hasher: A :mod:`hashlib` hash object to update in place.
-        directory: Path to the directory to hash.
+    The returned patterns can be passed directly to CDK ``exclude`` (together
+    with ``ignore_mode=cdk.IgnoreMode.GIT``) or stripped of trailing slashes
+    and forwarded to ``shutil.ignore_patterns``.
+
+    Returns an empty list when the ``.gitignore`` file does not exist.
     """
-    for dirpath, dirnames, filenames in os.walk(directory):
-        dirnames.sort()
-        for filename in sorted(filenames):
-            filepath = os.path.join(dirpath, filename)
-            hasher.update(filepath.encode())
-            with open(filepath, "rb") as f:
-                hasher.update(f.read())
+    gitignore_path = os.path.join(REPO_ROOT, ".gitignore")
+    patterns: list[str] = []
+    if os.path.exists(gitignore_path):
+        with open(gitignore_path) as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#"):
+                    patterns.append(stripped)
+    return patterns
+
+
+def _hash_directory(hasher: "hashlib._Hash", dirpath: str) -> None:
+    """Update *hasher* with the path and content of every file under *dirpath*.
+
+    Files are visited in a deterministic (sorted) order so the hash is
+    stable across runs and platforms.
+    """
+    for root, dirs, files in os.walk(dirpath):
+        dirs.sort()
+        for filename in sorted(files):
+            filepath = os.path.join(root, filename)
+            # Include relative path so renames change the hash.
+            hasher.update(os.path.relpath(filepath, dirpath).encode())
+            with open(filepath, "rb") as fh:
+                hasher.update(fh.read())
 
 
 def deps_hash(lambda_dir: str) -> str:
     """Compute a hash from the lambda's ``pyproject.toml`` and any workspace
-    package sources that ``DepsBundler`` vendors into the layer.
+    package sources that will be copied directly into the layer.
 
-    The layer is rebuilt when either:
-    - the lambda's ``pyproject.toml`` changes (dependency version bump), or
-    - the source code of any vendored workspace package changes.
+    The layer is rebuilt when either the lambda's ``pyproject.toml`` changes
+    (external dependencies change) **or** when the source of a workspace
+    package dependency changes.
     """
     hasher = hashlib.sha256()
     filepath = os.path.join(lambda_dir, "pyproject.toml")
-    if os.path.exists(filepath):
-        with open(filepath, "rb") as f:
-            content = f.read()
-        hasher.update(content)
+    if not os.path.exists(filepath):
+        return hasher.hexdigest()[:32]
 
-        # Also hash workspace package sources so layer is rebuilt when they change.
-        try:
-            data = tomllib.loads(content.decode())
-            sources = data.get("tool", {}).get("uv", {}).get("sources", {})
-            for pkg_name, source in sources.items():
-                if isinstance(source, dict) and source.get("workspace"):
-                    pkg_src = os.path.join(REPO_ROOT, "packages", pkg_name, "src")
-                    if os.path.isdir(pkg_src):
-                        _hash_directory(hasher, pkg_src)
-        except (tomllib.TOMLDecodeError, OSError):
-            pass
+    with open(filepath, "rb") as f:
+        content = f.read()
+    hasher.update(content)
+
+    # Discover workspace package dependencies and include their sources in the
+    # hash so that changes to those packages trigger a layer rebuild.
+    toml_data = tomllib.loads(content.decode())
+    uv_sources = toml_data.get("tool", {}).get("uv", {}).get("sources", {})
+    workspace_pkg_names = {
+        name for name, src in uv_sources.items() if src.get("workspace")
+    }
+
+    if workspace_pkg_names:
+        root_pyproject = os.path.join(REPO_ROOT, "pyproject.toml")
+        if os.path.exists(root_pyproject):
+            with open(root_pyproject, "rb") as f:
+                root_data = tomllib.load(f)
+            member_patterns: list[str] = (
+                root_data.get("tool", {})
+                .get("uv", {})
+                .get("workspace", {})
+                .get("members", [])
+            )
+            for pattern in member_patterns:
+                for member_dir in sorted(glob.glob(os.path.join(REPO_ROOT, pattern))):
+                    member_pyproject = os.path.join(member_dir, "pyproject.toml")
+                    if not os.path.exists(member_pyproject):
+                        continue
+                    with open(member_pyproject, "rb") as f:
+                        member_data = tomllib.load(f)
+                    member_name = member_data.get("project", {}).get("name")
+                    if member_name not in workspace_pkg_names:
+                        continue
+                    src_dir = os.path.join(member_dir, "src")
+                    if os.path.isdir(src_dir):
+                        _hash_directory(hasher, src_dir)
 
     return hasher.hexdigest()[:32]
 
@@ -84,6 +128,7 @@ class DepsBundler:
                 deps should be bundled (e.g. the lambda directory).
         """
         self._source_dir = source_dir
+        self._gitignore_patterns = gitignore_exclude_patterns()
 
     def try_bundle(self, output_dir: str, _options: cdk.BundlingOptions) -> bool:
         """Install runtime deps of ``source_dir`` into ``output_dir/python``.
@@ -165,16 +210,19 @@ class DepsBundler:
             return True
 
         # For workspace packages, copy their src/ into the target python_dir.
+        # Strip trailing slashes from gitignore patterns so shutil.ignore_patterns
+        # can match directory entries by name.
+        _gitignore = [p.rstrip("/") for p in self._gitignore_patterns]
+        _ignore_fn = shutil.ignore_patterns(*_gitignore)
         for ws_path in workspace_paths:
             src_dir = os.path.join(ws_path, "src")
             if os.path.isdir(src_dir):
-                for entry in os.listdir(src_dir):
-                    src = os.path.join(src_dir, entry)
-                    dst = os.path.join(python_dir, entry)
-                    if os.path.isdir(src):
-                        shutil.copytree(src, dst, dirs_exist_ok=True)
-                    else:
-                        shutil.copy2(src, dst)
+                shutil.copytree(
+                    src_dir,
+                    python_dir,
+                    dirs_exist_ok=True,
+                    ignore=_ignore_fn,
+                )
 
         if not requirements:
             return True

@@ -4,7 +4,7 @@ import base64
 import json
 
 import pytest
-from auth.token import decode_token, hash_password, verify_token
+from auth.token import decode_token, hash_password, verify_password, verify_token
 
 
 def _make_token(payload: dict) -> str:
@@ -60,19 +60,43 @@ def test_decode_token_raises_on_invalid_token() -> None:
 
 
 # ---------------------------------------------------------------------------
-# hash_password
+# hash_password / verify_password
 # ---------------------------------------------------------------------------
 
 
-def test_hash_password_returns_hex_string() -> None:
+def test_hash_password_returns_string() -> None:
     result = hash_password("secret")
     assert isinstance(result, str)
-    assert len(result) == 64  # SHA-256 produces 32 bytes = 64 hex chars
+    assert len(result) > 0
 
 
-def test_hash_password_same_input_same_output() -> None:
-    assert hash_password("password") == hash_password("password")
+def test_hash_password_output_is_base64() -> None:
+    result = hash_password("secret")
+    # Must be valid base64 and decode to at least 48 bytes (16 salt + 32 dk)
+    raw = base64.b64decode(result)
+    assert len(raw) == 48
+
+
+def test_hash_password_unique_per_call() -> None:
+    """Each call produces a different hash due to the random salt."""
+    assert hash_password("password") != hash_password("password")
 
 
 def test_hash_password_different_inputs_different_outputs() -> None:
-    assert hash_password("abc") != hash_password("xyz")
+    h1 = hash_password("abc")
+    h2 = hash_password("xyz")
+    assert h1 != h2
+
+
+def test_verify_password_correct_password() -> None:
+    hashed = hash_password("my-secret")
+    assert verify_password("my-secret", hashed) is True
+
+
+def test_verify_password_wrong_password() -> None:
+    hashed = hash_password("my-secret")
+    assert verify_password("wrong-password", hashed) is False
+
+
+def test_verify_password_invalid_hash() -> None:
+    assert verify_password("password", "not-valid-base64!!!") is False

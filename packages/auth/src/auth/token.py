@@ -8,15 +8,19 @@
       with **no cryptographic signature verification** — tokens can be trivially
       forged.  Use a proper JWT library (e.g. ``python-jose``, ``PyJWT``) with
       signature verification for real auth decisions.
-    * ``hash_password`` uses plain SHA-256 with **no salt or key-stretching** —
-      it is vulnerable to rainbow-table attacks.  Use ``bcrypt``, ``argon2``,
-      or ``scrypt`` in production.
+    * ``hash_password`` uses PBKDF2-HMAC-SHA256 with a random salt — this is
+      suitable for development/demo use.  For production, prefer ``argon2`` or
+      ``bcrypt`` which offer stronger memory-hard guarantees.
 """
 
 import base64
 import hashlib
+import hmac
 import json
+import os
 from typing import Any
+
+_PBKDF2_ITERATIONS = 260_000
 
 
 def verify_token(token: str) -> bool:
@@ -61,14 +65,42 @@ def decode_token(token: str) -> dict[str, Any]:
 
 
 def hash_password(password: str) -> str:
-    """Return a SHA-256 hex digest of the given password.
+    """Hash a password using PBKDF2-HMAC-SHA256 with a random salt.
 
-    This is intentionally simple — use a proper KDF in production.
+    Returns a base64-encoded string that encodes the 16-byte salt followed
+    by the 32-byte derived key.  Use :func:`verify_password` to check a
+    plain-text password against the stored hash.
 
     Args:
         password: The plain-text password to hash.
 
     Returns:
-        A hex-encoded SHA-256 digest string.
+        A base64-encoded string containing the salt and derived key.
     """
-    return hashlib.sha256(password.encode()).hexdigest()
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt, _PBKDF2_ITERATIONS
+    )
+    return base64.b64encode(salt + dk).decode("ascii")
+
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Verify a plain-text password against a stored hash.
+
+    Args:
+        password: The plain-text password to check.
+        hashed: A hash previously produced by :func:`hash_password`.
+
+    Returns:
+        True if the password matches, False otherwise.
+    """
+    try:
+        raw = base64.b64decode(hashed)
+        salt = raw[:16]
+        stored_dk = raw[16:]
+        dk = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), salt, _PBKDF2_ITERATIONS
+        )
+        return hmac.compare_digest(dk, stored_dk)
+    except Exception:
+        return False
