@@ -1,5 +1,6 @@
 """Local CDK bundler utilities."""
 
+import glob
 import hashlib
 import os
 import re
@@ -19,17 +20,74 @@ REPO_ROOT: str = os.path.abspath(
 )
 
 
-def deps_hash(lambda_dir: str) -> str:
-    """Compute a hash from the lambda's ``pyproject.toml`` only.
+def _hash_directory(hasher: "hashlib._Hash", dirpath: str) -> None:
+    """Update *hasher* with the path and content of every file under *dirpath*.
 
-    The layer is rebuilt only when ``pyproject.toml`` changes, not when the
-    handler source code changes.
+    Files are visited in a deterministic (sorted) order so the hash is
+    stable across runs and platforms.
+    """
+    for root, dirs, files in os.walk(dirpath):
+        dirs.sort()
+        for filename in sorted(files):
+            filepath = os.path.join(root, filename)
+            # Include relative path so renames change the hash.
+            hasher.update(os.path.relpath(filepath, dirpath).encode())
+            with open(filepath, "rb") as fh:
+                hasher.update(fh.read())
+
+
+def deps_hash(lambda_dir: str) -> str:
+    """Compute a hash from the lambda's ``pyproject.toml`` and any workspace
+    package sources that will be copied directly into the layer.
+
+    The layer is rebuilt when either the lambda's ``pyproject.toml`` changes
+    (external dependencies change) **or** when the source of a workspace
+    package dependency changes.
     """
     hasher = hashlib.sha256()
     filepath = os.path.join(lambda_dir, "pyproject.toml")
-    if os.path.exists(filepath):
-        with open(filepath, "rb") as f:
-            hasher.update(f.read())
+    if not os.path.exists(filepath):
+        return hasher.hexdigest()[:32]
+
+    with open(filepath, "rb") as f:
+        content = f.read()
+    hasher.update(content)
+
+    # Discover workspace package dependencies and include their sources in the
+    # hash so that changes to those packages trigger a layer rebuild.
+    toml_data = tomllib.loads(content.decode())
+    uv_sources = toml_data.get("tool", {}).get("uv", {}).get("sources", {})
+    workspace_pkg_names = {
+        name for name, src in uv_sources.items() if src.get("workspace")
+    }
+
+    if workspace_pkg_names:
+        root_pyproject = os.path.join(REPO_ROOT, "pyproject.toml")
+        if os.path.exists(root_pyproject):
+            with open(root_pyproject, "rb") as f:
+                root_data = tomllib.load(f)
+            member_patterns: list[str] = (
+                root_data.get("tool", {})
+                .get("uv", {})
+                .get("workspace", {})
+                .get("members", [])
+            )
+            for pattern in member_patterns:
+                for member_dir in sorted(
+                    glob.glob(os.path.join(REPO_ROOT, pattern))
+                ):
+                    member_pyproject = os.path.join(member_dir, "pyproject.toml")
+                    if not os.path.exists(member_pyproject):
+                        continue
+                    with open(member_pyproject, "rb") as f:
+                        member_data = tomllib.load(f)
+                    member_name = member_data.get("project", {}).get("name")
+                    if member_name not in workspace_pkg_names:
+                        continue
+                    src_dir = os.path.join(member_dir, "src")
+                    if os.path.isdir(src_dir):
+                        _hash_directory(hasher, src_dir)
+
     return hasher.hexdigest()[:32]
 
 
